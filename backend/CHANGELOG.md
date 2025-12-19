@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/Pushikoo/Pushikoo/compare/pushikoo-v0.2.2...pushikoo-v0.2.3) (2025-12-19)
+
+
+### Bug Fixes
+
+* **cron:** edit ineffective ([8bef3f4](https://github.com/Pushikoo/Pushikoo/commit/8bef3f407303305d1fbb34b031d4a35e9a9d7256))
+
 ## [0.2.2](https://github.com/Pushikoo/Pushikoo/compare/pushikoo-v0.2.1...pushikoo-v0.2.2) (2025-12-19)
 
 
