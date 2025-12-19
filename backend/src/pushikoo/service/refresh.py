@@ -660,8 +660,8 @@ class CronService:
             raise ValueError(f"Invalid cron expression: '{expr}'")
 
     @staticmethod
-    def _job_id(cron_id: UUID) -> str:
-        return str(cron_id)
+    def _job_id(flow_id: UUID, cron_expr: str) -> str:
+        return str(flow_id) + cron_expr
 
     @staticmethod
     def _load_all_from_db() -> List[Tuple[UUID, UUID, str, bool]]:
@@ -684,7 +684,10 @@ class CronService:
                 for cron_id, flow_id, cron_expr, enabled in db_crons
                 if enabled
             ]
-            db_ids = {cls._job_id(cron_id) for cron_id, _, _ in enabled_crons}
+            db_ids = {
+                cls._job_id(flow_id, cron_expr)
+                for cron_id, flow_id, cron_expr in enabled_crons
+            }
 
             job_ids = {job.id for job in cls._scheduler.get_jobs()}
 
@@ -692,7 +695,7 @@ class CronService:
             to_remove = job_ids - db_ids
 
             cron_map = {
-                cls._job_id(cron_id): (cron_id, flow_id, cron_expr)
+                cls._job_id(flow_id, cron_expr): (cron_id, flow_id, cron_expr)
                 for cron_id, flow_id, cron_expr in enabled_crons
             }
 
