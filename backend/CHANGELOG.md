@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Pushikoo/Pushikoo/compare/pushikoo-v0.2.1...pushikoo-v0.2.2) (2025-12-19)
+
+
+### Bug Fixes
+
+* **api:** replace get_object_by_id with get() in instance API ([9711721](https://github.com/Pushikoo/Pushikoo/commit/9711721980dbb2761ee02a17b6427d95479b99bb))
+
 ## [0.2.1](https://github.com/Pushikoo/Pushikoo/compare/pushikoo-v0.2.0...pushikoo-v0.2.1) (2025-12-19)
 
 
