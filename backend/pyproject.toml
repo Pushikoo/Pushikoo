@@ -4,7 +4,7 @@ requires = ["setuptools", "wheel"]
 
 [project]
 name = "pushikoo"
-version = "0.2.2"
+version = "0.2.3"
 description = "A message synchronization framework."
 readme = "README.md"
 authors = [{ name = "Pushikoo" }]
