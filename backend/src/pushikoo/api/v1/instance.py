@@ -48,7 +48,7 @@ def create_instance(instance_create: AdapterInstanceCreate) -> AdapterInstance:
 def delete_instance(instance_id: UUID) -> Response:
     """Delete an adapter instance by ID."""
     try:
-        instance = AdapterInstanceService.get_object_by_id(instance_id)
+        instance = AdapterInstanceService.get(instance_id)
         AdapterInstanceService.delete(instance.adapter_name, instance.identifier)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except (KeyError, ValueError):
@@ -61,7 +61,7 @@ def delete_instance(instance_id: UUID) -> Response:
 def get_instance_config(instance_id: UUID) -> dict:
     """Get configuration for an adapter instance by ID."""
     try:
-        instance = AdapterInstanceService.get_object_by_id(instance_id)
+        instance = AdapterInstanceService.get(instance_id)
         config = AdapterInstanceService.get_config(
             instance.adapter_name, instance.identifier
         )
@@ -76,7 +76,7 @@ def get_instance_config(instance_id: UUID) -> dict:
 def set_instance_config(instance_id: UUID, config: dict[str, Any]) -> dict:
     """Set configuration for an adapter instance by ID."""
     try:
-        instance = AdapterInstanceService.get_object_by_id(instance_id)
+        instance = AdapterInstanceService.get(instance_id)
         return AdapterInstanceService.set_config(
             instance.adapter_name, instance.identifier, config
         )

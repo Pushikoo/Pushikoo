@@ -211,6 +211,21 @@ class AdapterInstanceService:
             return instance
 
     @staticmethod
+    def get(instance_id: UUID) -> AdapterInstance:
+        """Get an adapter instance by ID, returning the Pydantic model."""
+        with get_session() as session:
+            row = session.get(AdapterInstanceDB, instance_id)
+
+        if not row:
+            raise KeyError(f"Adapter instance {instance_id} not found")
+
+        return AdapterInstance(
+            id=row.id,
+            adapter_name=row.adapter_name,
+            identifier=row.identifier,
+        )
+
+    @staticmethod
     def create(instance_create: AdapterInstanceCreate) -> AdapterInstance:
         with get_session() as session:
             db_obj = AdapterInstanceDB(
