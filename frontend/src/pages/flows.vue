@@ -228,10 +228,25 @@
         </v-card-title>
         <v-card-text>
           <p class="text-body-2 mb-4">{{ $t('flows.executeConfirmMessage') }}</p>
-          <v-select v-model="excludeNodes" :items="executeFlowNodes" item-title="displayName" item-value="id" multiple
-            chips closable-chips :label="$t('flows.excludeNodesLabel')" variant="outlined" density="comfortable"
-            clearable :hint="$t('flows.excludeNodesHint')" persistent-hint>
-          </v-select>
+          <div class="mb-3">
+            <div class="d-flex flex-wrap ga-2 mb-3">
+              <v-btn size="small" variant="tonal" prepend-icon="mdi-checkbox-multiple-marked" @click="selectAllNodes">
+                {{ $t('flows.selectAll') }}
+              </v-btn>
+              <v-btn size="small" variant="tonal" prepend-icon="mdi-checkbox-multiple-blank-outline"
+                @click="selectNoneNodes">
+                {{ $t('flows.selectNone') }}
+              </v-btn>
+              <v-btn size="small" variant="tonal" prepend-icon="mdi-swap-horizontal" @click="invertNodeSelection">
+                {{ $t('flows.invertSelection') }}
+              </v-btn>
+            </div>
+            <v-card variant="outlined" class="pa-2 node-selection-card" rounded="lg">
+              <v-checkbox v-for="node in executeFlowNodes" :key="node.id" v-model="selectedNodes" :value="node.id"
+                :label="node.displayName" density="compact" hide-details class="mb-1"></v-checkbox>
+            </v-card>
+            <p class="text-caption text-medium-emphasis mt-2">{{ $t('flows.selectNodesHint') }}</p>
+          </div>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
@@ -296,7 +311,7 @@ const executingFlowId = ref<string | null>(null)
 // Execute Dialog
 const executeDialog = ref(false)
 const flowToExecute = ref<Flow | null>(null)
-const excludeNodes = ref<string[]>([])
+const selectedNodes = ref<string[]>([])
 const executeFlowNodes = computed(() => {
   if (!flowToExecute.value) return []
   return flowToExecute.value.nodes.map(nodeId => ({
@@ -430,17 +445,37 @@ const editFlow = (item: Flow) => {
 
 const executeFlow = (item: Flow) => {
   flowToExecute.value = item
-  excludeNodes.value = []
+  // Select all nodes by default
+  selectedNodes.value = [...item.nodes]
   executeDialog.value = true
+}
+
+const selectAllNodes = () => {
+  if (flowToExecute.value) {
+    selectedNodes.value = [...flowToExecute.value.nodes]
+  }
+}
+
+const selectNoneNodes = () => {
+  selectedNodes.value = []
+}
+
+const invertNodeSelection = () => {
+  if (flowToExecute.value) {
+    const allNodes = flowToExecute.value.nodes
+    selectedNodes.value = allNodes.filter(n => !selectedNodes.value.includes(n))
+  }
 }
 
 const confirmExecuteFlow = async () => {
   if (!flowToExecute.value) return
   executingFlowId.value = flowToExecute.value.id
   try {
+    // Pass selected nodes (empty array means nothing will run)
+    const includeNodes = selectedNodes.value.length > 0 ? selectedNodes.value : undefined
     await FlowsService.executeFlowApiV1FlowsFlowIdExecutePost({
       flowId: flowToExecute.value.id,
-      requestBody: { exclude_nodes: excludeNodes.value }
+      requestBody: includeNodes ? { include_nodes: includeNodes } : {}
     })
     showSnackbar(t('flows.executionStarted'), 'success')
     executeDialog.value = false
@@ -556,5 +591,15 @@ const loadFlowInstances = async () => {
 
 :root.v-theme--dark .flow-nodes-card {
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.node-selection-card {
+  max-height: 200px;
+  overflow-y: auto;
+  border-color: rgba(0, 0, 0, 0.24) !important;
+}
+
+:root.v-theme--dark .node-selection-card {
+  border-color: rgba(255, 255, 255, 0.24) !important;
 }
 </style>

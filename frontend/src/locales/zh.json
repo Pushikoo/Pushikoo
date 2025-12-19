@@ -140,8 +140,10 @@
         "execute": "执行",
         "executeFlow": "执行流程",
         "executeConfirmMessage": "确认执行此流程？",
-        "excludeNodesLabel": "跳过节点（可选）",
-        "excludeNodesHint": "选中的节点在本次执行中将被跳过",
+        "selectNodesHint": "选择要执行的节点，未选中的节点在本次执行中将被跳过",
+        "selectAll": "全选",
+        "selectNone": "全不选",
+        "invertSelection": "反选",
         "executionStarted": "流程执行已启动",
         "executionFailed": "启动流程执行失败"
     },

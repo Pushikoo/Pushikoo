@@ -288,9 +288,11 @@ class FlowInstanceRunner:
 
     ATTEMPT_COUNT = 3
 
-    def __init__(self, flow_id: UUID, exclude_nodes: list[UUID] | None = None):
+    def __init__(self, flow_id: UUID, include_nodes: list[UUID] | None = None):
         self.flow_id = flow_id
-        self.exclude_nodes = set(str(n) for n in (exclude_nodes or []))
+        self.include_nodes = (
+            set(str(n) for n in include_nodes) if include_nodes is not None else None
+        )
 
         with get_session() as session:
             flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
@@ -299,13 +301,16 @@ class FlowInstanceRunner:
             if not flow_db.nodes:
                 raise ValueError(f"Flow has no nodes: {flow_id}")
 
-            # Filter out excluded nodes
+            # Filter to only included nodes (None = include all)
             all_nodes = list(flow_db.nodes or [])
-            self.flow_nodes = [n for n in all_nodes if n not in self.exclude_nodes]
+            if self.include_nodes is not None:
+                self.flow_nodes = [n for n in all_nodes if n in self.include_nodes]
+            else:
+                self.flow_nodes = all_nodes
 
-            if self.exclude_nodes:
+            if self.include_nodes is not None:
                 logger.info(
-                    f"Flow {flow_id} executing with {len(self.exclude_nodes)} excluded nodes"
+                    f"Flow {flow_id} executing with {len(self.include_nodes)} included nodes"
                 )
 
         self.id = uuid.uuid4()
