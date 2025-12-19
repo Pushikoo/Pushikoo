@@ -113,8 +113,8 @@ def execute_flow(flow_id: UUID, payload: FlowExecuteRequest | None = None) -> Re
             status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
         )
 
-    exclude_nodes = payload.exclude_nodes if payload else []
-    runner = FlowInstanceRunner(flow_id, exclude_nodes=exclude_nodes)
+    include_nodes = payload.include_nodes if payload else None
+    runner = FlowInstanceRunner(flow_id, include_nodes=include_nodes)
     runner.do()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -140,8 +140,10 @@
         "execute": "Execute",
         "executeFlow": "Execute Flow",
         "executeConfirmMessage": "Confirm flow execution?",
-        "excludeNodesLabel": "Skip Nodes (Optional)",
-        "excludeNodesHint": "Selected nodes will be skipped during this execution",
+        "selectNodesHint": "Select nodes to execute. Unselected nodes will be skipped during this execution.",
+        "selectAll": "Select All",
+        "selectNone": "Select None",
+        "invertSelection": "Invert Selection",
         "executionStarted": "Flow execution started",
         "executionFailed": "Failed to start flow execution"
     },

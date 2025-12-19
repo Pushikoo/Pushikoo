@@ -56,6 +56,6 @@ class FlowInstance(BaseModel):
 
 
 class FlowExecuteRequest(BaseModel):
-    """Request body for executing a flow with optional node exclusions."""
+    """Request body for executing a flow with optional node inclusions."""
 
-    exclude_nodes: list[UUID] = []  # List of node IDs to skip during execution
+    include_nodes: list[UUID] | None = None  # List of node IDs to run (None = run all)

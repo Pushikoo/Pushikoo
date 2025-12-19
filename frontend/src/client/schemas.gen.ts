@@ -264,19 +264,25 @@ export const FlowCreateSchema = {
 
 export const FlowExecuteRequestSchema = {
     properties: {
-        exclude_nodes: {
-            items: {
-                type: 'string',
-                format: 'uuid'
-            },
-            type: 'array',
-            title: 'Exclude Nodes',
-            default: []
+        include_nodes: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Include Nodes'
         }
     },
     type: 'object',
     title: 'FlowExecuteRequest',
-    description: 'Request body for executing a flow with optional node exclusions.'
+    description: 'Request body for executing a flow with optional node inclusions.'
 } as const;
 
 export const FlowInstanceSchema = {

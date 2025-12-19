@@ -67,10 +67,10 @@ export type FlowCreate = {
 };
 
 /**
- * Request body for executing a flow with optional node exclusions.
+ * Request body for executing a flow with optional node inclusions.
  */
 export type FlowExecuteRequest = {
-    exclude_nodes?: Array<(string)>;
+    include_nodes?: (Array<(string)> | null);
 };
 
 export type FlowInstance = {

@@ -140,8 +140,10 @@
         "execute": "実行",
         "executeFlow": "フローを実行",
         "executeConfirmMessage": "フローを実行しますか？",
-        "excludeNodesLabel": "スキップするノード（任意）",
-        "excludeNodesHint": "選択したノードはこの実行中にスキップされます",
+        "selectNodesHint": "実行するノードを選択してください。選択されていないノードはこの実行中にスキップされます。",
+        "selectAll": "すべて選択",
+        "selectNone": "すべて解除",
+        "invertSelection": "選択を反転",
         "executionStarted": "フロー実行を開始しました",
         "executionFailed": "フロー実行の開始に失敗しました"
     },
