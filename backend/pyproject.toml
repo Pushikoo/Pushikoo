@@ -1,0 +1,81 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "wheel", "setuptools-scm"]
+
+[project]
+name = "pushikoo"
+dynamic = ['version']
+description = "A message synchronization framework."
+readme = "README.md"
+authors = [{ name = "Pushikoo" }]
+requires-python = "==3.12.*"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "alembic>=1.17.2,<2.0.0",
+    "apscheduler>=3.11.1,<4.0.0",
+    "authlib>=1.6.6,<2.0.0",
+    "diskcache>=5.6.3,<6.0.0",
+    "fastapi>=0.124.4,<0.125.0",
+    "httpx>=0.28.1,<0.29.0",
+    "itsdangerous>=2.2.0,<3.0.0",
+    "loguru>=0.7.3,<0.8.0",
+    "pillow>=12.0.0,<13.0.0",
+    "pydantic>=2.12.4,<3.0.0",
+    "pydantic-settings>=2.12.0,<3.0.0",
+    "pyjwt[crypto]>=2.10.1",
+    "python-multipart>=0.0.20,<0.0.21",
+    "requests>=2.32.5,<3.0.0",
+    "sqlalchemy>=2.0.45,<3.0.0",
+    "sqlmodel>=0.0.27,<0.0.28",
+    "starlette>=0.50.0,<0.51.0",
+    "uvicorn>=0.38.0,<0.39.0",
+    "pushikoo-adapter-testgetter",
+    "pushikoo-adapter-testprocesser",
+    "pushikoo-adapter-testpusher",
+    "pushikoo-interface>=1.0.0",
+    "sqlalchemy-utc>=0.14.0",
+]
+
+
+[project.urls]
+"Homepage" = "https://github.com/Pushikoo/Pushikoo"
+
+
+[project.scripts]
+pushikoo = "pushikoo.app:main"
+
+
+[tool.ruff]
+respect-gitignore = true
+
+[tool.pip-tools]
+no-emit-index-url = true
+
+[tool.pytest.ini_options]
+addopts = "--rootdir=."
+pythonpath = ["src"]
+testpaths = ["test"]
+
+[tool.setuptools_scm]
+root = ".."
+version_scheme = "post-release"
+local_scheme = "node-and-date"
+
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
+include = ["pushikoo*"]
+
+[tool.setuptools.package-data]
+pushikoo = ["frontend-static/**/*"]
+
+[dependency-groups]
+dev = ["pip-audit>=2.10.0", "pre-commit", "black", "flake8", "isort", "pytest"]
+build = ["build", "pyinstaller"]
