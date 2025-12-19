@@ -1,10 +1,6 @@
-[build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools", "wheel", "setuptools-scm"]
-
 [project]
 name = "pushikoo"
-dynamic = ['version']
+version = "0.2.0"
 description = "A message synchronization framework."
 readme = "README.md"
 authors = [{ name = "Pushikoo" }]
@@ -39,14 +35,11 @@ dependencies = [
     "sqlalchemy-utc>=0.14.0",
 ]
 
-
 [project.urls]
 "Homepage" = "https://github.com/Pushikoo/Pushikoo"
 
-
 [project.scripts]
 pushikoo = "pushikoo.app:main"
-
 
 [tool.ruff]
 respect-gitignore = true
@@ -58,12 +51,6 @@ no-emit-index-url = true
 addopts = "--rootdir=."
 pythonpath = ["src"]
 testpaths = ["test"]
-
-[tool.setuptools_scm]
-root = ".."
-version_scheme = "post-release"
-local_scheme = "node-and-date"
-
 
 [tool.setuptools.package-dir]
 "" = "src"

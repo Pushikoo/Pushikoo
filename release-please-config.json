@@ -1,0 +1,8 @@
+{
+    "packages": {
+        "backend": {
+            "release-type": "python",
+            "package-name": "pushikoo"
+        }
+    }
+}
