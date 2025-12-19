@@ -1,8 +1,16 @@
 {
     "packages": {
-        "backend": {
+        ".": {
             "release-type": "python",
-            "package-name": "pushikoo"
+            "package-name": "pushikoo",
+            "include-component-in-tag": false,
+            "extra-files": [
+                {
+                    "type": "toml",
+                    "path": "backend/pyproject.toml",
+                    "jsonpath": "$.project.version"
+                }
+            ]
         }
     }
 }
