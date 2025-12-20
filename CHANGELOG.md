@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Pushikoo/Pushikoo/compare/v0.3.0...v0.4.0) (2025-12-20)
+
+
+### Features
+
+* **frontend:** improve mobile responsiveness for all pages ([fa53a67](https://github.com/Pushikoo/Pushikoo/commit/fa53a672a5b4dd41b91fd037a3a8b57d349f9c00))
+
 ## [0.3.0](https://github.com/Pushikoo/Pushikoo/compare/v0.2.3...v0.3.0) (2025-12-19)
 
 
