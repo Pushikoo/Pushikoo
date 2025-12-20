@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Pushikoo/Pushikoo/compare/v0.5.0...v0.5.1) (2025-12-20)
+
+
+### Bug Fixes
+
+* add type assertion for v-for index in SchemaForm tuple loop ([df5f4bd](https://github.com/Pushikoo/Pushikoo/commit/df5f4bd3ba87acd2bf7bc70d9db88ea0b6390498))
+
 ## [0.5.0](https://github.com/Pushikoo/Pushikoo/compare/v0.4.0...v0.5.0) (2025-12-20)
 
 
