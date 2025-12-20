@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Pushikoo/Pushikoo/compare/v0.4.0...v0.5.0) (2025-12-20)
+
+
+### Features
+
+* simulate venv activation on startup for bare command support ([f20ea19](https://github.com/Pushikoo/Pushikoo/commit/f20ea195c6c31d4e240b47caba951e4859fcbf5b))
+
 ## [0.4.0](https://github.com/Pushikoo/Pushikoo/compare/v0.3.0...v0.4.0) (2025-12-20)
 
 ### Features
