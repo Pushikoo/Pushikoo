@@ -16,6 +16,36 @@ from pushikoo.service.refresh import CronService
 from pushikoo.util.setting import settings
 
 
+def _activate_venv() -> None:
+    """
+    Simulate virtual environment activation by modifying PATH.
+
+    This ensures that commands installed in the venv's Scripts (Windows) or bin (Unix)
+    directory can be executed as bare commands (e.g., 'pip' instead of 'python -m pip').
+    """
+    # sys.prefix points to the venv root when running inside a venv
+    venv_root = Path(sys.prefix)
+
+    # Determine the scripts directory based on the platform
+    if sys.platform == "win32":
+        scripts_dir = venv_root / "Scripts"
+    else:
+        scripts_dir = venv_root / "bin"
+
+    if not scripts_dir.exists():
+        return
+
+    scripts_path = str(scripts_dir)
+    current_path = os.environ.get("PATH", "")
+
+    # Only add if not already at the front of PATH
+    if not current_path.startswith(scripts_path):
+        os.environ["PATH"] = scripts_path + os.pathsep + current_path
+
+    # Set VIRTUAL_ENV environment variable (standard for activated venvs)
+    os.environ["VIRTUAL_ENV"] = str(venv_root)
+
+
 def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
     eng = engine or app_engine
     cfg = Config()
@@ -28,6 +58,7 @@ def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
 
 
 def main() -> None:
+    _activate_venv()
     logger.info("Pushikoo started")
     if settings.ENVIRONMENT != "local":
         logger.remove()
