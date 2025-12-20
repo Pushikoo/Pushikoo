@@ -1,12 +1,11 @@
 [build-system]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8"]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools", "wheel"]
 
 [project]
 name = "pushikoo"
-version = "0.3.0"
+dynamic = ["version"]
 description = "A message synchronization framework."
-readme = "README.md"
 authors = [{ name = "Pushikoo" }]
 requires-python = "==3.12.*"
 classifiers = [
@@ -45,6 +44,12 @@ dependencies = [
 [project.scripts]
 pushikoo = "pushikoo.app:main"
 
+[project.optional-dependencies]
+dev = ["pip-audit>=2.10.0", "pre-commit", "black", "flake8", "isort", "pytest"]
+
+[tool.setuptools_scm]
+root = ".."
+
 [tool.ruff]
 respect-gitignore = true
 
@@ -66,7 +71,3 @@ include = ["pushikoo*"]
 
 [tool.setuptools.package-data]
 pushikoo = ["frontend-static/**/*"]
-
-[dependency-groups]
-dev = ["pip-audit>=2.10.0", "pre-commit", "black", "flake8", "isort", "pytest"]
-build = ["build", "pyinstaller"]

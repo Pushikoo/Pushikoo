@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
+        with:
+          release-type: python
 
   build:
     runs-on: ubuntu-latest
@@ -52,6 +54,8 @@ jobs:
         working-directory: backend
 
       - name: Build distributions
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ needs.release-please.outputs.tag_name }}
         run: uv run ./script/build.py
 
       - name: Upload distributions
