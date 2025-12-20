@@ -25,13 +25,13 @@
                     <div class="union-header">
                         <div class="union-header__row">
                             <div class="d-flex align-center ga-2 flex-wrap">
-                                <v-chip-group v-model="selectedUnion" mandatory selected-class="union-chip-active" column
-                                    @update:model-value="onUnionChange">
-                                <v-chip v-for="(option, index) in unionOptions" :key="index" :value="index"
-                                    variant="elevated" size="small" class="ma-1">
-                                    {{ unionOptionLabel(option, index) }}
-                                </v-chip>
-                            </v-chip-group>
+                                <v-chip-group v-model="selectedUnion" mandatory selected-class="union-chip-active"
+                                    column @update:model-value="onUnionChange">
+                                    <v-chip v-for="(option, index) in unionOptions" :key="index" :value="index"
+                                        variant="elevated" size="small" class="ma-1">
+                                        {{ unionOptionLabel(option, index) }}
+                                    </v-chip>
+                                </v-chip-group>
                                 <span class="text-caption text-medium-emphasis">
                                     {{ unionOptions.length }} variant{{ unionOptions.length > 1 ? 's' : '' }} available
                                 </span>
@@ -57,19 +57,18 @@
                             <span class="text-body-2 text-medium-emphasis">Tuple items</span>
                             <span class="text-caption text-medium-emphasis">
                                 {{ normalized.prefixItems.length }} fixed position{{ normalized.prefixItems.length > 1 ?
-                                's' : '' }}
+                                    's' : '' }}
                             </span>
                         </div>
                         <div class="tuple-grid">
-                            <div v-for="(tupleSchema, index) in normalized.prefixItems" :key="index"
-                                class="tuple-cell">
+                            <div v-for="(tupleSchema, idx) in normalized.prefixItems" :key="idx" class="tuple-cell">
                                 <div class="tuple-label text-caption text-medium-emphasis">
-                                    {{ tupleSchema.title || `Item ${index + 1}` }}
+                                    {{ tupleSchema.title || `Item ${(idx as number) + 1}` }}
                                 </div>
                                 <SchemaForm :schema="tupleSchema" :root-schema="rootSchema"
-                                    :model-value="readTupleValue(index)"
-                                    @update:model-value="updateTupleValue(index, $event)" :depth="depth + 1"
-                                    :label="tupleSchema.title || `Item ${index + 1}`" chrome="bare" />
+                                    :model-value="readTupleValue(idx as number)"
+                                    @update:model-value="updateTupleValue(idx as number, $event)" :depth="depth + 1"
+                                    :label="tupleSchema.title || `Item ${(idx as number) + 1}`" chrome="bare" />
                             </div>
                         </div>
                     </div>
@@ -104,13 +103,11 @@
                                         </span>
                                     </div>
                                     <v-btn icon="mdi-close" color="error" variant="text" size="small"
-                                        :disabled="!canRemoveArray"
-                                        @click="removeArrayItem(index)" />
+                                        :disabled="!canRemoveArray" @click="removeArrayItem(index)" />
                                 </div>
                                 <SchemaForm :schema="normalized.items || {}" :root-schema="rootSchema"
-                                    :model-value="item"
-                                    @update:model-value="updateArrayItem(index, $event)" :depth="depth + 1"
-                                    chrome="bare" />
+                                    :model-value="item" @update:model-value="updateArrayItem(index, $event)"
+                                    :depth="depth + 1" chrome="bare" />
                             </div>
                         </div>
 
@@ -134,10 +131,10 @@
                                                     variant="tonal" class="chip">
                                                     Required
                                                 </v-chip>
-                                            <v-chip v-if="property.meta.const !== undefined" size="x-small"
-                                                color="primary" label variant="flat" class="chip">
-                                                Const
-                                            </v-chip>
+                                                <v-chip v-if="property.meta.const !== undefined" size="x-small"
+                                                    color="primary" label variant="flat" class="chip">
+                                                    Const
+                                                </v-chip>
                                             </div>
                                             <p v-if="property.meta.description"
                                                 class="text-caption text-medium-emphasis mb-0">
@@ -171,13 +168,12 @@
                                 </v-btn>
                             </div>
                             <div v-if="dictionaryEntries.length" class="dictionary__list">
-                                <div v-for="entry in dictionaryEntries" :key="entry.id"
-                                    class="dictionary__row">
+                                <div v-for="entry in dictionaryEntries" :key="entry.id" class="dictionary__row">
                                     <v-text-field :model-value="dictionaryKeyDrafts[entry.id] ?? entry.key"
                                         @update:model-value="val => setDictionaryKeyDraft(entry.id, val)"
                                         @blur="commitDictionaryKeyDraft(entry.id)" density="compact"
-                                        @keydown.enter.prevent="commitDictionaryKeyDraft(entry.id)"
-                                        label="Key" variant="outlined" hide-details clearable class="dictionary__key" />
+                                        @keydown.enter.prevent="commitDictionaryKeyDraft(entry.id)" label="Key"
+                                        variant="outlined" hide-details clearable class="dictionary__key" />
                                     <div class="dictionary__value">
                                         <SchemaForm :schema="normalized.additionalProperties" :root-schema="rootSchema"
                                             :model-value="entry.value"
@@ -199,26 +195,25 @@
                 <template v-else>
                     <div class="primitive">
                         <v-select v-if="Array.isArray(normalized.enum)" v-model="localValue" :items="normalized.enum"
-                            :label="inputLabel" :hint="inputHint || 'Pick one option'"
-                            :persistent-hint="!isBare" hide-details="auto" density="comfortable" variant="outlined"
-                            :placeholder="inputPlaceholder" chips clearable>
+                            :label="inputLabel" :hint="inputHint || 'Pick one option'" :persistent-hint="!isBare"
+                            hide-details="auto" density="comfortable" variant="outlined" :placeholder="inputPlaceholder"
+                            chips clearable>
                         </v-select>
 
                         <v-text-field v-else-if="normalized.const !== undefined" :model-value="normalized.const"
                             :label="inputLabel" :hint="inputHint || 'Read only'" :persistent-hint="!isBare" readonly
                             variant="outlined" density="comfortable" :placeholder="inputPlaceholder" />
 
-                        <v-text-field v-else-if="normalized.type === 'string'" v-model="localValue"
-                            :label="inputLabel" :hint="inputHint" :persistent-hint="!isBare" variant="outlined"
-                            density="comfortable" :type="stringInputType" :placeholder="inputPlaceholder" />
+                        <v-text-field v-else-if="normalized.type === 'string'" v-model="localValue" :label="inputLabel"
+                            :hint="inputHint" :persistent-hint="!isBare" variant="outlined" density="comfortable"
+                            :type="stringInputType" :placeholder="inputPlaceholder" />
 
-                        <v-switch v-else-if="normalized.type === 'boolean'" v-model="localValue"
-                            :label="inputLabel" color="primary" hide-details :messages="inputHint" />
+                        <v-switch v-else-if="normalized.type === 'boolean'" v-model="localValue" :label="inputLabel"
+                            color="primary" hide-details :messages="inputHint" />
 
                         <v-text-field v-else-if="normalized.type === 'integer' || normalized.type === 'number'"
-                            v-model.number="localValue" :label="inputLabel" :hint="inputHint"
-                            :persistent-hint="!isBare" variant="outlined" density="comfortable" type="number"
-                            :placeholder="inputPlaceholder" />
+                            v-model.number="localValue" :label="inputLabel" :hint="inputHint" :persistent-hint="!isBare"
+                            variant="outlined" density="comfortable" type="number" :placeholder="inputPlaceholder" />
 
                         <v-textarea v-else v-model="localValue" :label="inputLabel"
                             :hint="inputHint || 'Unsupported type rendered as text'" :persistent-hint="!isBare"
@@ -311,13 +306,13 @@ watchEffect(() => {
 })
 
 // Union handling
- const unionOptions = computed(() => normalized.value.unionOptions || [])
- const selectedUnion = ref(0)
+const unionOptions = computed(() => normalized.value.unionOptions || [])
+const selectedUnion = ref(0)
 const selectedUnionSchema = computed(() => unionOptions.value[selectedUnion.value])
 
- watch(() => [localValue.value, unionOptions.value], () => {
-     if (!unionOptions.value.length) return
-     selectedUnion.value = detectUnionSelection(localValue.value, unionOptions.value)
+watch(() => [localValue.value, unionOptions.value], () => {
+    if (!unionOptions.value.length) return
+    selectedUnion.value = detectUnionSelection(localValue.value, unionOptions.value)
 }, { immediate: true, deep: true })
 
 const onUnionChange = (index: number) => {
@@ -909,7 +904,7 @@ export default {
     margin-bottom: 8px;
 }
 
-.array-item + .array-item {
+.array-item+.array-item {
     margin-top: 14px;
     padding-top: 14px;
     border-top: 1px dashed rgba(var(--v-theme-on-surface), 0.12);
@@ -939,7 +934,7 @@ export default {
     gap: 10px;
 }
 
-.property-card + .property-card {
+.property-card+.property-card {
     margin-top: 14px;
     padding-top: 14px;
     border-top: 1px dashed rgba(var(--v-theme-on-surface), 0.12);
@@ -984,7 +979,7 @@ export default {
     align-items: center;
 }
 
-.dictionary__row + .dictionary__row {
+.dictionary__row+.dictionary__row {
     padding-top: 10px;
     border-top: 1px dashed rgba(var(--v-theme-on-surface), 0.12);
 }
