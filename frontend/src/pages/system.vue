@@ -10,9 +10,10 @@
                             {{ $t('system.description') }}
                         </p>
                     </div>
-                    <v-btn color="primary" size="large" prepend-icon="mdi-content-save" :loading="saving"
+                    <v-btn color="primary" size="large" :icon="$vuetify.display.xs" :loading="saving"
                         :disabled="!schema" @click="saveConfig">
-                        {{ $t('system.saveSettings') }}
+                        <v-icon icon="mdi-content-save"></v-icon>
+                        <span class="d-none d-sm-inline ml-2">{{ $t('system.saveSettings') }}</span>
                     </v-btn>
                 </div>
             </v-col>

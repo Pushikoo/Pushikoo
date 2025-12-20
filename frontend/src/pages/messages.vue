@@ -10,8 +10,9 @@
               {{ $t('messages.description') }}
             </p>
           </div>
-          <v-btn color="primary" prepend-icon="mdi-refresh" @click="refreshData" :loading="loading">
-            {{ $t('common.refresh') }}
+          <v-btn color="primary" :icon="$vuetify.display.xs" @click="refreshData" :loading="loading">
+            <v-icon icon="mdi-refresh"></v-icon>
+            <span class="d-none d-sm-inline ml-2">{{ $t('common.refresh') }}</span>
           </v-btn>
         </div>
       </v-col>

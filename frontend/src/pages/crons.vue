@@ -11,11 +11,13 @@
             </p>
           </div>
           <div class="d-flex ga-2">
-            <v-btn color="primary" variant="tonal" prepend-icon="mdi-refresh" @click="refreshData" :loading="loading">
-              {{ $t('common.refresh') }}
+            <v-btn color="primary" variant="tonal" :icon="$vuetify.display.xs" @click="refreshData" :loading="loading">
+              <v-icon icon="mdi-refresh"></v-icon>
+              <span class="d-none d-sm-inline ml-2">{{ $t('common.refresh') }}</span>
             </v-btn>
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
-              {{ $t('crons.createCron') }}
+            <v-btn color="primary" :icon="$vuetify.display.xs" @click="openCreateDialog">
+              <v-icon icon="mdi-plus"></v-icon>
+              <span class="d-none d-sm-inline ml-2">{{ $t('crons.createCron') }}</span>
             </v-btn>
           </div>
         </div>

@@ -10,8 +10,9 @@
                             {{ $t('warnings.description') }}
                         </p>
                     </div>
-                    <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDialog">
-                        {{ $t('warnings.addRecipient') }}
+                    <v-btn color="primary" :icon="$vuetify.display.xs" @click="openAddDialog">
+                        <v-icon icon="mdi-plus"></v-icon>
+                        <span class="d-none d-sm-inline ml-2">{{ $t('warnings.addRecipient') }}</span>
                     </v-btn>
                 </div>
             </v-col>

@@ -11,12 +11,14 @@
                         </p>
                     </div>
                     <div class="d-flex ga-2">
-                        <v-btn color="primary" variant="tonal" prepend-icon="mdi-refresh" @click="loadAdapters"
+                        <v-btn color="primary" variant="tonal" :icon="$vuetify.display.xs" @click="loadAdapters"
                             :loading="loadingAdapters">
-                            {{ $t('common.refresh') }}
+                            <v-icon icon="mdi-refresh"></v-icon>
+                            <span class="d-none d-sm-inline ml-2">{{ $t('common.refresh') }}</span>
                         </v-btn>
-                        <v-btn color="primary" prepend-icon="mdi-plus" @click="openInstallDialog">
-                            {{ $t('adapters.install') }}
+                        <v-btn color="primary" :icon="$vuetify.display.xs" @click="openInstallDialog">
+                            <v-icon icon="mdi-plus"></v-icon>
+                            <span class="d-none d-sm-inline ml-2">{{ $t('adapters.install') }}</span>
                         </v-btn>
                     </div>
                 </div>
@@ -46,25 +48,34 @@
                                         class="d-none d-sm-flex">
                                         <v-icon :icon="getAdapterTypeIcon(adapter.type)"></v-icon>
                                     </v-avatar>
-                                    <v-avatar :color="getAdapterTypeColor(adapter.type)" variant="tonal" size="36"
-                                        class="d-flex d-sm-none">
-                                        <v-icon :icon="getAdapterTypeIcon(adapter.type)" size="18"></v-icon>
-                                    </v-avatar>
                                 </template>
-                                <v-list-item-title class="font-weight-bold">{{ adapter.name }}</v-list-item-title>
-                                <v-list-item-subtitle class="d-flex flex-wrap align-center ga-1 mt-1">
+                                <!-- Desktop layout -->
+                                <v-list-item-title class="font-weight-bold d-none d-sm-block">{{ adapter.name
+                                    }}</v-list-item-title>
+                                <v-list-item-subtitle class="d-none d-sm-flex flex-wrap align-center ga-1 mt-1">
                                     <v-chip size="x-small" :color="getAdapterTypeColor(adapter.type)" variant="tonal">
                                         {{ adapter.type }}
                                     </v-chip>
                                     <v-chip size="x-small" color="grey" variant="tonal">
                                         v{{ adapter.version }}
                                     </v-chip>
-                                    <span class="text-caption text-medium-emphasis d-none d-sm-inline ml-1">{{
+                                    <span class="text-caption text-medium-emphasis ml-1">{{
                                         adapter.summary || adapter.description ||
                                         '' }}</span>
                                 </v-list-item-subtitle>
+                                <!-- Mobile layout: name with inline chips -->
+                                <v-list-item-title class="d-sm-none d-flex flex-wrap align-center ga-1">
+                                    <span class="font-weight-bold">{{ adapter.name }}</span>
+                                    <v-chip size="x-small" :color="getAdapterTypeColor(adapter.type)" variant="tonal">
+                                        {{ adapter.type }}
+                                    </v-chip>
+                                    <v-chip size="x-small" color="grey" variant="tonal">
+                                        v{{ adapter.version }}
+                                    </v-chip>
+                                </v-list-item-title>
                                 <template v-slot:append>
-                                    <div class="d-flex flex-nowrap">
+                                    <!-- Desktop: show all buttons -->
+                                    <div class="d-none d-sm-flex flex-nowrap">
                                         <v-btn icon="mdi-cog-outline" variant="text" size="small" color="primary"
                                             @click="openConfig(adapter)" :title="$t('common.configure')" />
                                         <v-btn icon="mdi-arrow-up-bold" variant="text" size="small" color="success"
@@ -72,6 +83,23 @@
                                         <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error"
                                             @click="openUninstallDialog(adapter)" :title="$t('adapters.uninstall')" />
                                     </div>
+                                    <!-- Mobile: dropdown menu -->
+                                    <v-menu location="bottom end">
+                                        <template v-slot:activator="{ props }">
+                                            <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" size="small"
+                                                class="d-sm-none"></v-btn>
+                                        </template>
+                                        <v-list density="compact">
+                                            <v-list-item prepend-icon="mdi-cog-outline" :title="$t('common.configure')"
+                                                @click="openConfig(adapter)"></v-list-item>
+                                            <v-list-item prepend-icon="mdi-arrow-up-bold"
+                                                :title="$t('adapters.upgrade')"
+                                                @click="openUpgradeDialog(adapter)"></v-list-item>
+                                            <v-list-item prepend-icon="mdi-delete-outline"
+                                                :title="$t('adapters.uninstall')" class="text-error"
+                                                @click="openUninstallDialog(adapter)"></v-list-item>
+                                        </v-list>
+                                    </v-menu>
                                 </template>
                             </v-list-item>
                         </v-list>
@@ -94,7 +122,7 @@
                                 <v-list v-if="indexes.length > 0" density="compact" class="bg-transparent">
                                     <v-list-item v-for="url in indexes" :key="url" rounded="lg" class="mb-1" border>
                                         <v-list-item-title class="text-body-2 text-truncate">{{ maskAuthUrl(url)
-                                        }}</v-list-item-title>
+                                            }}</v-list-item-title>
                                         <template v-slot:append>
                                             <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error"
                                                 @click="removeIndex(url)"></v-btn>
@@ -698,5 +726,15 @@ const performUninstall = async () => {
 
 .install-dialog-window :deep(.v-window-item) {
     overflow: visible;
+}
+
+/* Mobile adapter list item: allow text wrapping */
+@media (max-width: 599.98px) {
+    .v-list-item-title {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        line-height: 1.4 !important;
+    }
 }
 </style>
