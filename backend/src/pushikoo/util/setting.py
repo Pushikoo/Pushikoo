@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     SECRET_TOKENS: list[str] = Field(default_factory=list)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
 
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    ENVIRONMENT: Literal["local", "staging", "production"] = "production"
 
     # ------------------------------------------------------------------
     # Raw host values loaded from environment variables

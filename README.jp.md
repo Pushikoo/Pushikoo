@@ -64,6 +64,24 @@ uv pip install pushikoo
 pip install pushikoo
 ```
 
+### 環境変数の設定
+
+**PowerShell:**
+
+```powershell
+$env:ENVIRONMENT = "production"
+...
+```
+
+**Bash / Zsh:**
+
+```bash
+export ENVIRONMENT='production'
+...
+```
+
+または、作業ディレクトリに `.env` ファイルを作成すると、Pushikoo が自動的に読み込みます。完全な `.env` テンプレートは [`.env.example`](./backend/.env.example) を参照してください。
+
 ### Pushikoo の実行
 
 ```bash

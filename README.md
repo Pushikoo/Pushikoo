@@ -64,6 +64,24 @@ uv pip install pushikoo
 pip install pushikoo
 ```
 
+### Configure Environment Variables
+
+**PowerShell:**
+
+```powershell
+$env:ENVIRONMENT = "production"
+...
+```
+
+**Bash / Zsh:**
+
+```bash
+export ENVIRONMENT='production'
+...
+```
+
+Or create a `.env` file in the working directory — Pushikoo will load it automatically. See [`.env.example`](./backend/.env.example) for the full template.
+
 ### Run Pushikoo
 
 ```bash
