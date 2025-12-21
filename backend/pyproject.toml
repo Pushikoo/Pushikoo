@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm[simple]>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "pushikoo"
@@ -47,8 +47,17 @@ pushikoo = "pushikoo.app:main"
 [project.optional-dependencies]
 dev = ["pip-audit>=2.10.0", "pre-commit", "black", "flake8", "isort", "pytest"]
 
-[tool.setuptools_scm]
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/.vscode", "/uv.lock", "/.gitignore"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
 root = ".."
+
+[tool.hatch.build]
+artifacts = ["src/pushikoo/frontend-static/**/*"]
 
 [tool.ruff]
 respect-gitignore = true
@@ -60,14 +69,3 @@ no-emit-index-url = true
 addopts = "--rootdir=."
 pythonpath = ["src"]
 testpaths = ["test"]
-
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-namespaces = true
-include = ["pushikoo*"]
-
-[tool.setuptools.package-data]
-pushikoo = ["frontend-static/**/*"]
