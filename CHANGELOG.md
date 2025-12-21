@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/Pushikoo/Pushikoo/compare/v0.5.1...v0.6.0) (2025-12-21)
+
+
+### Features
+
+* **setting:** Updated .env.example to set default ENVIRONMENT to production and ([27c0ab5](https://github.com/Pushikoo/Pushikoo/commit/27c0ab5520d3b3cf507e69b1e48000cbc75e5415))
+
+
+### Documentation
+
+* **readme:** add environment variable configuration guide ([27c0ab5](https://github.com/Pushikoo/Pushikoo/commit/27c0ab5520d3b3cf507e69b1e48000cbc75e5415))
+
 ## [0.5.1](https://github.com/Pushikoo/Pushikoo/compare/v0.5.0...v0.5.1) (2025-12-20)
 
 
