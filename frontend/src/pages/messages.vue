@@ -399,10 +399,24 @@ const onImageLoad = async () => {
   const containerWidth = container?.clientWidth || window.innerWidth * 0.9
   const containerHeight = container?.clientHeight || window.innerHeight * 0.75
 
-  const scaleX = containerWidth / imgWidth
-  const scaleY = containerHeight / imgHeight
-  // Minimum zoom is 50%
-  let fitZoom = Math.max(Math.min(scaleX, scaleY, 1) * 0.95, 0.5)
+  // Calculate window's long and short sides
+  const windowLongSide = Math.max(containerWidth, containerHeight)
+  const windowShortSide = Math.min(containerWidth, containerHeight)
+
+  // Calculate image's short side
+  const imgShortSide = Math.min(imgWidth, imgHeight)
+
+  // Constraints:
+  // 1. Image short side should not exceed 65% of window's long side
+  // 2. Image short side should not exceed 100% of window's short side
+  // Otherwise, show as large as possible (up to natural size)
+  const maxShortSide1 = windowLongSide * 0.65
+  const maxShortSide2 = windowShortSide * 1.0
+  const maxAllowedShortSide = Math.min(maxShortSide1, maxShortSide2)
+
+  // Calculate zoom: scale so that image short side = maxAllowedShortSide
+  // But don't exceed natural size (scale 1)
+  let fitZoom = Math.min(maxAllowedShortSide / imgShortSide, 1)
 
   // Ensure fitZoom is a valid number
   if (isNaN(fitZoom) || fitZoom <= 0) {
