@@ -92,9 +92,8 @@ pushikoo
 
 ### Prerequisites
 
-- Python 3.12+
 - Node.js 18+ with pnpm
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
+- [uv](https://github.com/astral-sh/uv)
 
 ### Backend Setup
 

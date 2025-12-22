@@ -92,9 +92,8 @@ pushikoo
 
 ### 前提条件
 
-- Python 3.12+
 - Node.js 18+ with pnpm
-- [uv](https://github.com/astral-sh/uv)（Python パッケージマネージャー）
+- [uv](https://github.com/astral-sh/uv)
 
 ### バックエンドセットアップ
 
