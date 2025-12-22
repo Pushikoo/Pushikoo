@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/Pushikoo/Pushikoo/compare/v0.6.0...v0.7.0) (2025-12-22)
+
+
+### Features
+
+* add ImageService for image storage and access links ([efe06af](https://github.com/Pushikoo/Pushikoo/commit/efe06af9105e5f955f9e8bdbd8ea462098f50748))
+* **frontend:** add Struct markdown renderer for consistent message preview ([d9c52df](https://github.com/Pushikoo/Pushikoo/commit/d9c52dfd65d2c8b6a405d23cd2dc76b12304fe7e))
+* **frontend:** enhance image preview in messages page ([12991c0](https://github.com/Pushikoo/Pushikoo/commit/12991c0bd0a2735f807ddb970985e58a9cf68685))
+* **messages:** improve image scaling logic for better fit within container ([d8df41c](https://github.com/Pushikoo/Pushikoo/commit/d8df41c255eb61d7b09ad03372d36b4e92163851))
+
+
+### Documentation
+
+* simplify prerequisites by removing Python version requirement ([30b8f6a](https://github.com/Pushikoo/Pushikoo/commit/30b8f6af0ae1484eae3f758dbe134f7ca423da4d))
+
 ## [0.6.0](https://github.com/Pushikoo/Pushikoo/compare/v0.5.1...v0.6.0) (2025-12-21)
 
 
