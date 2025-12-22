@@ -106,8 +106,8 @@ class PipIndex(SQLModel, table=True):
 
 class File(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    path: str
-    mime: Optional[str] = None
+    filename: str  # {hash}.{ext}
+    expire_at: datetime.datetime = Field(sa_column=Column(UtcDateTime()))
 
 
 def init_db() -> None:

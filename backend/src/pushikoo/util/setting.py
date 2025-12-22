@@ -7,9 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 CRON_SCHEDULER_MAX_WORKERS = 10
 DATA_DIR = Path("./data")
 CACHE_DIR = DATA_DIR / ".cache"
+FILE_DIR = DATA_DIR / "files"
+
+IMAGE_LINK_DEFAULT_EXPIRE_SECOND = 100 * 365 * 24 * 3600
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+FILE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _parse_cors(v: Any) -> list[str] | str:

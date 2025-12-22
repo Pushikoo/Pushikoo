@@ -13,6 +13,7 @@ from pushikoo_interface import (
     Processer,
     Pusher,
     Struct,
+    StructImage,
     StructText,
     TerminateFlowException,
 )
@@ -41,6 +42,7 @@ from pushikoo.model.message import MessageCreate, MessageListFilter
 from pushikoo.model.pagination import Page, apply_page_limit
 from pushikoo.service.adapter import AdapterInstanceService
 from pushikoo.service.config import ConfigService
+from pushikoo.service.image import ImageService
 from pushikoo.service.message import MessageService
 from pushikoo.service.warning import WarningService
 from pushikoo.util.setting import CRON_SCHEDULER_MAX_WORKERS
@@ -406,6 +408,8 @@ class FlowInstanceRunner:
     ) -> Struct:
         """Create message content from detail and save to database."""
         message_content = MessageService.Template.v1(detail)
+        # Process all images through ImageService
+        self._process_struct_images(message_content)
         MessageService.create(
             MessageCreate(
                 message_identifier=message_identifier,
@@ -415,6 +419,14 @@ class FlowInstanceRunner:
             )
         )
         return message_content
+
+    def _process_struct_images(self, struct: Struct) -> None:
+        """Process all StructImage items in a Struct, replacing their source with ImageService URLs."""
+        if not struct or not struct.content:
+            return
+        for item in struct.content:
+            if isinstance(item, StructImage) and item.source:
+                item.source = ImageService.create(item.source)
 
     def _track_getter_timeline_failure(self, getter: Getter, ex: Exception):
         """Track consecutive timeline failures and issue warnings at thresholds."""

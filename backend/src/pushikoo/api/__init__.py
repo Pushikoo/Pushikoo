@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from pushikoo.api.spa import router as sparouter
 from pushikoo.api.v1 import oauth_router as v1_oauth_router
 from pushikoo.api.v1 import router as v1_router
+from pushikoo.api.v1.file import router as file_router
 from pushikoo.util.setting import settings
 
 apirouter = APIRouter(prefix="/api")
@@ -16,6 +17,7 @@ apirouter.include_router(v1_router)
 
 app = FastAPI()
 app.include_router(apirouter)
+app.include_router(file_router)
 app.include_router(sparouter)
 
 
