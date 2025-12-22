@@ -20,7 +20,8 @@
         "paginationInfo": "{from}-{to} / {total} 件",
         "copy": "コピー",
         "copied": "クリップボードにコピーしました",
-        "copyFailed": "コピーに失敗しました"
+        "copyFailed": "コピーに失敗しました",
+        "imagePreview": "画像プレビュー"
     },
     "nav": {
         "dashboard": "ダッシュボード",

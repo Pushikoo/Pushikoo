@@ -136,7 +136,8 @@
           <v-divider class="my-4"></v-divider>
           <div class="text-subtitle-2 font-weight-bold mb-2">{{ $t('messages.content') }}</div>
           <v-sheet color="surface-light" rounded="lg" class="pa-4 mb-4">
-            <div v-if="getRenderedContent(editedItem)" v-html="getRenderedHtml(editedItem)" class="markdown-content" />
+            <div v-if="getRenderedContent(editedItem)" v-html="getRenderedHtml(editedItem)" class="markdown-content"
+              @click="handleMarkdownClick" />
             <div v-else class="text-medium-emphasis">{{ $t('messages.noTextContent') }}</div>
           </v-sheet>
           <div class="d-flex align-center justify-space-between mb-2">
@@ -177,11 +178,34 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Image Preview Dialog -->
+    <v-dialog v-model="imagePreviewDialog" :fullscreen="$vuetify.display.smAndDown" max-width="90vw" max-height="90vh">
+      <v-card :rounded="$vuetify.display.smAndDown ? '0' : 'xl'" class="image-preview-card">
+        <v-card-title class="d-flex align-center pa-2 pa-sm-3 image-preview-title">
+          <v-icon icon="mdi-image" class="mr-2" size="small"></v-icon>
+          <span class="text-body-2 text-sm-body-1">{{ $t('common.imagePreview') }}</span>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-minus" variant="text" size="small" @click="zoomOut" :disabled="imageZoom <= 0.25"></v-btn>
+          <span class="text-caption text-sm-body-2 mx-1 mx-sm-2">{{ Math.round(imageZoom * 100) }}%</span>
+          <v-btn icon="mdi-plus" variant="text" size="small" @click="zoomIn" :disabled="imageZoom >= 5"></v-btn>
+          <v-btn icon="mdi-refresh" variant="text" size="small" @click="resetZoom" class="ml-1 ml-sm-2"></v-btn>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="closeImagePreview" class="ml-1 ml-sm-2"></v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-0 image-preview-container" ref="imageContainerRef" @wheel.prevent="handleWheel"
+          @mousedown="startDrag" @mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag"
+          @touchstart.prevent="handleTouchStart" @touchmove.prevent="handleTouchMove" @touchend="handleTouchEnd">
+          <img :src="previewImageSrc" :style="imagePreviewStyle" class="preview-image" draggable="false"
+            ref="previewImageRef" @load="onImageLoad" />
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script lang="ts" setup>
-import { ref, onActivated, inject, computed } from 'vue'
+import { ref, onActivated, inject, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagesService, type Message } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -213,6 +237,23 @@ const deleteDialog = ref(false)
 const editedItem = ref<Message | null>(null)
 const itemToDelete = ref<Message | null>(null)
 const deleting = ref(false)
+const imagePreviewDialog = ref(false)
+const previewImageSrc = ref('')
+const imageZoom = ref(1)
+const imagePosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const imageContainerRef = ref<HTMLElement | null>(null)
+const previewImageRef = ref<HTMLImageElement | null>(null)
+const lastTouchDistance = ref(0)
+const lastTouchCenter = ref({ x: 0, y: 0 })
+const initialFitZoom = ref(1)
+
+const imagePreviewStyle = computed(() => ({
+  transform: `translate(${imagePosition.value.x}px, ${imagePosition.value.y}px) scale(${imageZoom.value})`,
+  cursor: isDragging.value ? 'grabbing' : 'grab',
+  transformOrigin: 'center center',
+}))
 
 const formatDate = (ts: number) => {
   return new Date(ts * 1000).toLocaleString()
@@ -323,6 +364,199 @@ const close = () => {
   editedItem.value = null
 }
 
+const openImagePreview = (src: string) => {
+  previewImageSrc.value = src
+  imageZoom.value = 1
+  imagePosition.value = { x: 0, y: 0 }
+  initialFitZoom.value = 1
+  imagePreviewDialog.value = true
+}
+
+const onImageLoad = async () => {
+  // Wait for DOM to update
+  await nextTick()
+
+  // Calculate fit-to-window zoom
+  const img = previewImageRef.value
+  const container = imageContainerRef.value
+
+  if (!img) {
+    initialFitZoom.value = 1
+    imageZoom.value = 1
+    return
+  }
+
+  const imgWidth = img.naturalWidth
+  const imgHeight = img.naturalHeight
+
+  if (imgWidth === 0 || imgHeight === 0) {
+    initialFitZoom.value = 1
+    imageZoom.value = 1
+    return
+  }
+
+  // Get container dimensions, fallback to viewport if not available
+  const containerWidth = container?.clientWidth || window.innerWidth * 0.9
+  const containerHeight = container?.clientHeight || window.innerHeight * 0.75
+
+  const scaleX = containerWidth / imgWidth
+  const scaleY = containerHeight / imgHeight
+  // Minimum zoom is 50%
+  let fitZoom = Math.max(Math.min(scaleX, scaleY, 1) * 0.95, 0.5)
+
+  // Ensure fitZoom is a valid number
+  if (isNaN(fitZoom) || fitZoom <= 0) {
+    initialFitZoom.value = 1
+    imageZoom.value = 1
+  } else {
+    initialFitZoom.value = fitZoom
+    imageZoom.value = fitZoom
+  }
+
+  // For tall images (height > width), position from top
+  const isLongImage = imgHeight > imgWidth * 1.2
+  if (isLongImage && container) {
+    // Calculate vertical offset to show from top
+    const scaledHeight = imgHeight * fitZoom
+    const offsetY = Math.max(0, (scaledHeight - containerHeight) / 2)
+    imagePosition.value = { x: 0, y: offsetY }
+  } else {
+    imagePosition.value = { x: 0, y: 0 }
+  }
+}
+
+const closeImagePreview = () => {
+  imagePreviewDialog.value = false
+  resetZoom()
+}
+
+const zoomIn = () => {
+  imageZoom.value = Math.min(imageZoom.value * 1.25, 5)
+}
+
+const zoomOut = () => {
+  imageZoom.value = Math.max(imageZoom.value / 1.25, 0.25)
+}
+
+const resetZoom = () => {
+  imageZoom.value = initialFitZoom.value || 1
+  imagePosition.value = { x: 0, y: 0 }
+}
+
+const handleWheel = (event: WheelEvent) => {
+  const delta = event.deltaY > 0 ? -0.1 : 0.1
+  const newZoom = Math.max(0.25, Math.min(5, imageZoom.value + delta))
+  imageZoom.value = newZoom
+}
+
+const startDrag = (event: MouseEvent) => {
+  isDragging.value = true
+  dragStart.value = {
+    x: event.clientX - imagePosition.value.x,
+    y: event.clientY - imagePosition.value.y,
+  }
+}
+
+const onDrag = (event: MouseEvent) => {
+  if (!isDragging.value) return
+  imagePosition.value = {
+    x: event.clientX - dragStart.value.x,
+    y: event.clientY - dragStart.value.y,
+  }
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+}
+
+// Touch gesture helpers
+const getTouchDistance = (touches: TouchList): number => {
+  if (touches.length < 2) return 0
+  const t0 = touches[0]
+  const t1 = touches[1]
+  if (!t0 || !t1) return 0
+  const dx = t0.clientX - t1.clientX
+  const dy = t0.clientY - t1.clientY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+const getTouchCenter = (touches: TouchList): { x: number; y: number } => {
+  const t0 = touches[0]
+  if (!t0) return { x: 0, y: 0 }
+  if (touches.length < 2) {
+    return { x: t0.clientX, y: t0.clientY }
+  }
+  const t1 = touches[1]
+  if (!t1) return { x: t0.clientX, y: t0.clientY }
+  return {
+    x: (t0.clientX + t1.clientX) / 2,
+    y: (t0.clientY + t1.clientY) / 2,
+  }
+}
+
+const handleTouchStart = (event: TouchEvent) => {
+  const t0 = event.touches[0]
+  if (!t0) return
+
+  if (event.touches.length === 2) {
+    // Pinch zoom start
+    lastTouchDistance.value = getTouchDistance(event.touches)
+    lastTouchCenter.value = getTouchCenter(event.touches)
+  } else if (event.touches.length === 1) {
+    // Pan start
+    isDragging.value = true
+    dragStart.value = {
+      x: t0.clientX - imagePosition.value.x,
+      y: t0.clientY - imagePosition.value.y,
+    }
+  }
+}
+
+const handleTouchMove = (event: TouchEvent) => {
+  if (event.touches.length === 2) {
+    // Pinch zoom
+    const newDistance = getTouchDistance(event.touches)
+    if (lastTouchDistance.value > 0) {
+      const scale = newDistance / lastTouchDistance.value
+      const newZoom = Math.max(0.25, Math.min(5, imageZoom.value * scale))
+      imageZoom.value = newZoom
+    }
+    lastTouchDistance.value = newDistance
+
+    // Pan while pinching
+    const newCenter = getTouchCenter(event.touches)
+    imagePosition.value = {
+      x: imagePosition.value.x + (newCenter.x - lastTouchCenter.value.x),
+      y: imagePosition.value.y + (newCenter.y - lastTouchCenter.value.y),
+    }
+    lastTouchCenter.value = newCenter
+  } else if (event.touches.length === 1 && isDragging.value) {
+    // Single finger pan
+    const t0 = event.touches[0]
+    if (!t0) return
+    imagePosition.value = {
+      x: t0.clientX - dragStart.value.x,
+      y: t0.clientY - dragStart.value.y,
+    }
+  }
+}
+
+const handleTouchEnd = () => {
+  isDragging.value = false
+  lastTouchDistance.value = 0
+}
+
+// Set up click handler for images in markdown content
+const handleMarkdownClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target.tagName === 'IMG') {
+    const imgSrc = (target as HTMLImageElement).src
+    if (imgSrc) {
+      openImagePreview(imgSrc)
+    }
+  }
+}
+
 const deleteItem = (item: Message) => {
   itemToDelete.value = item
   deleteDialog.value = true
@@ -414,10 +648,51 @@ const confirmDelete = async () => {
 }
 
 .markdown-content :deep(img) {
-  max-width: 100%;
-  height: auto;
+  min-width: 75px;
+  min-height: 75px;
+  max-width: 150px;
+  max-height: 200px;
+  object-fit: cover;
+  object-position: top;
   border-radius: 8px;
   margin: 0.5em 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.markdown-content :deep(img:hover) {
+  opacity: 0.8;
+}
+
+.image-preview-card {
+  overflow: hidden;
+}
+
+.image-preview-title {
+  background: rgb(var(--v-theme-surface));
+}
+
+.image-preview-container {
+  height: 75vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(128, 128, 128, 0.15);
+  user-select: none;
+  touch-action: none;
+}
+
+@media (max-width: 600px) {
+  .image-preview-container {
+    height: calc(100vh - 56px);
+  }
+}
+
+.preview-image {
+  max-width: none;
+  max-height: none;
+  /* No transition for initial auto-zoom */
 }
 
 .markdown-content :deep(a) {

@@ -20,7 +20,8 @@
         "paginationInfo": "Showing {from}-{to} of {total}",
         "copy": "Copy",
         "copied": "Copied to clipboard",
-        "copyFailed": "Failed to copy"
+        "copyFailed": "Failed to copy",
+        "imagePreview": "Image Preview"
     },
     "nav": {
         "dashboard": "Dashboard",
