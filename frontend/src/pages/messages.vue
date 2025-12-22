@@ -136,9 +136,7 @@
           <v-divider class="my-4"></v-divider>
           <div class="text-subtitle-2 font-weight-bold mb-2">{{ $t('messages.content') }}</div>
           <v-sheet color="surface-light" rounded="lg" class="pa-4 mb-4">
-            <div v-if="getRenderedContent(editedItem)" style="white-space: pre-wrap; word-break: break-word;">
-              {{ getRenderedContent(editedItem) }}
-            </div>
+            <div v-if="getRenderedContent(editedItem)" v-html="getRenderedHtml(editedItem)" class="markdown-content" />
             <div v-else class="text-medium-emphasis">{{ $t('messages.noTextContent') }}</div>
           </v-sheet>
           <div class="d-flex align-center justify-space-between mb-2">
@@ -187,6 +185,8 @@ import { ref, onActivated, inject, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagesService, type Message } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { structAsMarkdown, structAsPlainText, type Struct } from '@/utils/structRenderer'
+import { marked } from 'marked'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -281,12 +281,9 @@ const getMessagePreview = (item: Message) => {
 }
 
 const getFullContentPreview = (item: Message): string => {
-  if (!item.content?.content) return ''
-  const texts = item.content.content
-    .filter((c: any) => c.type === 'text' || c.type === 'title')
-    .map((c: any) => c.text || '')
-    .join(' ')
-  return texts || 'Media/Mixed Content'
+  if (!item.content) return ''
+  const text = structAsPlainText(item.content as Struct)
+  return text || 'Media/Mixed Content'
 }
 
 const getContentPreview = (item: Message): string => {
@@ -296,12 +293,14 @@ const getContentPreview = (item: Message): string => {
 }
 
 const getRenderedContent = (item: Message): string => {
-  if (!item.content?.content) return ''
-  const texts = item.content.content
-    .filter((c: any) => c.type === 'text' || c.type === 'title')
-    .map((c: any) => c.text || '')
-    .join('\n\n')
-  return texts
+  if (!item.content) return ''
+  return structAsMarkdown(item.content as Struct)
+}
+
+const getRenderedHtml = (item: Message): string => {
+  const md = getRenderedContent(item)
+  if (!md) return ''
+  return marked.parse(md, { breaks: true }) as string
 }
 
 const copyJson = async () => {
@@ -370,5 +369,71 @@ const confirmDelete = async () => {
 
 :deep(.v-data-table th:nth-child(5)) {
   min-width: 80px;
+}
+
+/* Markdown content styles */
+.markdown-content {
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3),
+.markdown-content :deep(h4),
+.markdown-content :deep(h5),
+.markdown-content :deep(h6) {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 1.5em;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 1.3em;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 1.15em;
+}
+
+.markdown-content :deep(h4) {
+  font-size: 1em;
+}
+
+.markdown-content :deep(p) {
+  margin: 0 0 0.5em 0;
+}
+
+.markdown-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(a) {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+}
+
+.markdown-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-content :deep(strong) {
+  font-weight: 600;
+}
+
+.markdown-content :deep(em) {
+  font-style: italic;
 }
 </style>
