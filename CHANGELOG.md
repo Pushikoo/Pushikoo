@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/Pushikoo/Pushikoo/compare/v0.7.1...v0.7.2) (2025-12-23)
+
+
+### Performance Improvements
+
+* **vite:** add optimizeDeps configuration for better performance ([4a993db](https://github.com/Pushikoo/Pushikoo/commit/4a993dbb40157607a83d67c9570f0d5fe1977114))
+
 ## [0.7.1](https://github.com/Pushikoo/Pushikoo/compare/v0.7.0...v0.7.1) (2025-12-23)
 
 
