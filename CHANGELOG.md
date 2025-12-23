@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Pushikoo/Pushikoo/compare/v0.7.0...v0.7.1) (2025-12-23)
+
+
+### Bug Fixes
+
+* **deps:** adapter version not updated after installing a new version ([0dd8a6c](https://github.com/Pushikoo/Pushikoo/commit/0dd8a6c1b303516fddf11c25576fc01b8a21c38d))
+
 ## [0.7.0](https://github.com/Pushikoo/Pushikoo/compare/v0.6.0...v0.7.0) (2025-12-22)
 
 
