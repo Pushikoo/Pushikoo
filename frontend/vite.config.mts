@@ -14,6 +14,30 @@ import { fileURLToPath, URL } from "node:url";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    include: [
+      "marked",
+      "vuedraggable",
+      "vuetify/components/VAlert",
+      "vuetify/components/VAutocomplete",
+      "vuetify/components/VCheckbox",
+      "vuetify/components/VChipGroup",
+      "vuetify/components/VDataTable",
+      "vuetify/components/VEmptyState",
+      "vuetify/components/VFileInput",
+      "vuetify/components/VForm",
+      "vuetify/components/VPagination",
+      "vuetify/components/VProgressCircular",
+      "vuetify/components/VSelect",
+      "vuetify/components/VSheet",
+      "vuetify/components/VSwitch",
+      "vuetify/components/VTabs",
+      "vuetify/components/VTextarea",
+      "vuetify/components/VTextField",
+      "vuetify/components/VWindow",
+      "vuetify/components/transitions",
+    ],
+  },
   plugins: [
     VueRouter({
       dts: "src/typed-router.d.ts",
