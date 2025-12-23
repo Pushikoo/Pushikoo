@@ -741,7 +741,7 @@ requires-dist = [
     { name = "pushikoo-adapter-testgetter" },
     { name = "pushikoo-adapter-testprocesser" },
     { name = "pushikoo-adapter-testpusher" },
-    { name = "pushikoo-interface", specifier = ">=1.0.0" },
+    { name = "pushikoo-interface", specifier = ">=1.0.1" },
     { name = "pydantic", specifier = ">=2.12.4,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0,<3.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
@@ -800,14 +800,14 @@ wheels = [
 
 [[package]]
 name = "pushikoo-interface"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/1e/fd5dc2d94f9d7261f9694c543ffa962ee19ea4c78134598a222acd729297/pushikoo_interface-1.0.0.tar.gz", hash = "sha256:d9f0b7c8288049143d3a5a7c8f8ce51228d7556aa2a42c2feff135e32e50077d", size = 43670, upload-time = "2025-12-17T16:28:42.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/e9/4b50231c6074e3d097b3527b4f9e687a0f51bf9d48e1707f8e59f12c6be4/pushikoo_interface-1.0.1.tar.gz", hash = "sha256:9f1203ea15444fee2f75276f92980217d4b1ba6ff1d7b38485d8da3907d33732", size = 20844, upload-time = "2025-12-23T07:25:32.016Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/b5/a82e6fa490d62889a4be1d96bc5ced3729e8af2514aedb2bc660635e9700/pushikoo_interface-1.0.0-py3-none-any.whl", hash = "sha256:fe82a31497e83df278fdc5620880efa758dfad5980e4cc4674f526474e442e93", size = 20777, upload-time = "2025-12-17T16:28:40.864Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/82/e0ded445810a6db0c0220e145627215643a4f0f9765f7af93d4a451f5ed3/pushikoo_interface-1.0.1-py3-none-any.whl", hash = "sha256:287a3e1e2495078b141996a93903ca8e2c9ec3fba9a423ae2f1ad10456841ed2", size = 20631, upload-time = "2025-12-23T07:25:30.809Z" },
 ]
 
 [[package]]

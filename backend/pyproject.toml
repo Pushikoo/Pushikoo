@@ -34,7 +34,7 @@ dependencies = [
     "pushikoo-adapter-testgetter",
     "pushikoo-adapter-testprocesser",
     "pushikoo-adapter-testpusher",
-    "pushikoo-interface>=1.0.0",
+    "pushikoo-interface>=1.0.1",
     "sqlalchemy-utc>=0.14.0",
 ]
 
