@@ -42,14 +42,18 @@ export default defineConfig({
     // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
     Vuetify({
       autoImport: true,
+      styles: {
+        configFile: "src/styles/settings.scss",
+      },
     }),
     Fonts({
       fontsource: {
         families: [
           {
             name: "Roboto",
-            weights: [100, 300, 400, 500, 700, 900],
-            styles: ["normal", "italic"],
+            weights: [400, 500, 700], // Only load commonly used weights
+            styles: ["normal"], // Remove italic to reduce bundle size
+            subset: "latin", // Only load latin subset
           },
         ],
       },
