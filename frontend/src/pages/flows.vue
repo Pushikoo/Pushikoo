@@ -39,7 +39,7 @@
             </template>
 
             <template v-slot:item.nodes="{ item }">
-              <div class="d-flex flex-wrap ga-1">
+              <div class="d-flex flex-wrap align-center ga-1 pa-3">
                 <template v-for="(nodeId, index) in item.nodes" :key="nodeId">
                   <v-chip size="small" color="primary" variant="tonal" label>
                     {{ getInstanceName(nodeId) }}
@@ -107,20 +107,31 @@
 
           <v-card variant="flat" class="mb-4 flow-nodes-card" rounded="lg">
             <v-list v-if="editedItem.nodes && editedItem.nodes.length > 0" density="compact" class="bg-transparent">
-              <draggable v-model="editedItem.nodes" handle=".handle" item-key="element">
+              <draggable
+                v-model="editedItem.nodes"
+                handle=".handle"
+                :item-key="flowNodeItemKey"
+                :animation="200"
+                ghost-class="flow-node-ghost"
+                chosen-class="flow-node-chosen"
+                drag-class="flow-node-drag"
+              >
                 <template #item="{ element, index }">
-                  <v-list-item>
+                  <v-list-item class="flow-node-item mb-2 pa-2 rounded-lg border bg-surface" elevation="0">
                     <template v-slot:prepend>
-                      <v-icon class="handle cursor-move mr-2" icon="mdi-drag-vertical"></v-icon>
-                      <v-avatar color="primary" variant="tonal" size="32" class="mr-3">
-                        {{ index + 1 }}
-                      </v-avatar>
+                      <span class="text-caption font-weight-bold text-primary ml-1 mr-2" style="min-width: 20px;">
+                        {{ String(index + 1).padStart(2, '0') }}
+                      </span>
+                      <div class="d-flex align-center handle cursor-move mr-3">
+                        <v-icon icon="mdi-drag" color="medium-emphasis" size="small"></v-icon>
+                      </div>
                     </template>
-                    <v-list-item-title class="font-weight-medium">
+                    <v-list-item-title class="font-weight-medium text-body-2">
                       {{ getInstanceName(element) }}
                     </v-list-item-title>
                     <template v-slot:append>
-                      <v-btn icon="mdi-close" variant="text" size="small" color="error" @click="removeNode(index)" />
+                      <v-btn icon="mdi-close" variant="text" size="small" color="medium-emphasis" class="ml-2"
+                        @click="removeNode(index)" />
                     </template>
                   </v-list-item>
                 </template>
@@ -296,6 +307,8 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
+
+const flowNodeItemKey = (nodeId: string) => nodeId
 
 const flows = ref<Flow[]>([])
 const loading = ref(false)
@@ -585,6 +598,22 @@ const loadFlowInstances = async () => {
 
 .cursor-move {
   cursor: move;
+}
+
+.flow-node-item {
+  will-change: transform;
+}
+
+.flow-node-ghost {
+  opacity: 0.55;
+}
+
+.flow-node-chosen {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
+.flow-node-drag {
+  opacity: 0.95;
 }
 
 .flow-nodes-card {
