@@ -45,7 +45,7 @@ dependencies = [
 pushikoo = "pushikoo.app:main"
 
 [project.optional-dependencies]
-dev = ["pip-audit>=2.10.0", "pre-commit", "black", "flake8", "isort", "pytest"]
+dev = ["pip-audit>=2.10.0", "ruff", "pytest"]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/.github", "/.vscode", "/uv.lock", "/.gitignore"]
