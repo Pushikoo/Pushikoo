@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/Pushikoo/Pushikoo/compare/v0.8.0...v0.8.1) (2025-12-28)
+
+
+### Bug Fixes
+
+* adapter updates not taking effect after install/uninstall ([2e3e4da](https://github.com/Pushikoo/Pushikoo/commit/2e3e4dac3d349af0ae0bf61a86cb8184c58fa8e3))
+
 ## [0.8.0](https://github.com/Pushikoo/Pushikoo/compare/v0.7.1...v0.8.0) (2025-12-28)
 
 
