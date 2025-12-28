@@ -145,6 +145,13 @@
         "selectAll": "すべて選択",
         "selectNone": "すべて解除",
         "invertSelection": "選択を反転",
+        "viewDetail": "詳細を表示",
+        "instanceDetail": "実行詳細",
+        "duration": "実行時間",
+        "itemsIn": "入力項目数",
+        "itemsOut": "出力項目数",
+        "message": "メッセージ",
+        "noNodeExecutions": "ノード実行記録がありません",
         "executionStarted": "フロー実行を開始しました",
         "executionFailed": "フロー実行の開始に失敗しました"
     },

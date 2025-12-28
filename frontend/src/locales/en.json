@@ -145,6 +145,13 @@
         "selectAll": "Select All",
         "selectNone": "Select None",
         "invertSelection": "Invert Selection",
+        "viewDetail": "View Detail",
+        "instanceDetail": "Execution Detail",
+        "duration": "Duration",
+        "itemsIn": "Items In",
+        "itemsOut": "Items Out",
+        "message": "Message",
+        "noNodeExecutions": "No node executions recorded",
         "executionStarted": "Flow execution started",
         "executionFailed": "Failed to start flow execution"
     },

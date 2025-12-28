@@ -63,6 +63,27 @@ class FlowInstance(SQLModel, table=True):
     )
 
 
+class FlowNodeExecution(SQLModel, table=True):
+    """Records execution details of each node in a flow instance."""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    flow_instance_id: uuid.UUID = Field(foreign_key="flowinstance.id")
+    adapter_instance_id: uuid.UUID  # The node that was executed
+    node_index: int  # Position in the flow pipeline (0-indexed)
+    status: str  # "success" or "failed"
+    started_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime()),
+    )
+    finished_at: Optional[datetime.datetime] = Field(
+        default=None, sa_column=Column(UtcDateTime())
+    )
+    message: Optional[str] = None  # Node output info (Getter: message IDs)
+    error_message: Optional[str] = None  # Error details if failed
+    items_in: int = 0
+    items_out: int = 0
+
+
 class Message(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint(
@@ -124,6 +145,7 @@ __all__ = [
     "Flow",
     "FlowCron",
     "FlowInstance",
+    "FlowNodeExecution",
     # message
     "Message",
     # config/files

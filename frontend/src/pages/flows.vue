@@ -107,15 +107,8 @@
 
           <v-card variant="flat" class="mb-4 flow-nodes-card" rounded="lg">
             <v-list v-if="editedItem.nodes && editedItem.nodes.length > 0" density="compact" class="bg-transparent">
-              <draggable
-                v-model="editedItem.nodes"
-                handle=".handle"
-                :item-key="flowNodeItemKey"
-                :animation="200"
-                ghost-class="flow-node-ghost"
-                chosen-class="flow-node-chosen"
-                drag-class="flow-node-drag"
-              >
+              <draggable v-model="editedItem.nodes" handle=".handle" :item-key="flowNodeItemKey" :animation="200"
+                ghost-class="flow-node-ghost" chosen-class="flow-node-chosen" drag-class="flow-node-drag">
                 <template #item="{ element, index }">
                   <v-list-item class="flow-node-item mb-2 pa-2 rounded-lg border bg-surface" elevation="0">
                     <template v-slot:prepend>
@@ -209,6 +202,11 @@
               <v-list-item-subtitle class="text-caption mt-1">
                 {{ formatDateTime(instance.created_at) }}
               </v-list-item-subtitle>
+              <template v-slot:append>
+                <v-btn icon="mdi-eye" variant="text" size="small" color="primary" @click="openInstanceDetail(instance)"
+                  :loading="loadingInstanceDetail && selectedInstanceId === instance.id"
+                  :title="$t('flows.viewDetail')" />
+              </template>
             </v-list-item>
           </v-list>
 
@@ -271,6 +269,80 @@
       </v-card>
     </v-dialog>
 
+    <!-- Instance Detail Dialog -->
+    <v-dialog v-model="instanceDetailDialog" max-width="700px" :fullscreen="$vuetify.display.smAndDown">
+      <v-card :rounded="$vuetify.display.smAndDown ? '0' : 'xl'">
+        <v-card-title class="d-flex align-center pa-4">
+          <v-icon icon="mdi-file-tree" class="mr-2"></v-icon>
+          {{ $t('flows.instanceDetail') }}
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-refresh" variant="text" size="small" @click="refreshInstanceDetail"
+            :loading="loadingInstanceDetail" class="mr-1"></v-btn>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="instanceDetailDialog = false"></v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-4">
+          <div v-if="loadingInstanceDetail" class="text-center py-6">
+            <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
+            <div class="text-body-2 text-medium-emphasis mt-2">{{ $t('common.loading') }}</div>
+          </div>
+
+          <div v-else-if="selectedInstanceDetail">
+            <div class="d-flex align-center mb-4">
+              <v-chip :color="statusColors[selectedInstanceDetail.status]" size="small" label variant="tonal"
+                class="mr-2">
+                {{ selectedInstanceDetail.status }}
+              </v-chip>
+              <span class="text-caption text-medium-emphasis">{{ formatDateTime(selectedInstanceDetail.created_at)
+                }}</span>
+            </div>
+
+            <v-timeline density="compact" side="end" v-if="selectedInstanceDetail.node_executions.length > 0">
+              <v-timeline-item v-for="execution in selectedInstanceDetail.node_executions" :key="execution.id"
+                :dot-color="getNodeStatusColor(execution.status)" size="small">
+                <template v-slot:icon>
+                  <v-icon
+                    :icon="execution.status === 'success' ? 'mdi-check' : execution.status === 'running' ? 'mdi-play' : 'mdi-close'"
+                    size="12"></v-icon>
+                </template>
+                <v-card variant="outlined" class="mb-2 card-outlined" rounded="lg">
+                  <v-card-text class="pa-3">
+                    <div class="d-flex align-center mb-2">
+                      <v-chip :color="getNodeStatusColor(execution.status)" size="x-small" label variant="tonal"
+                        class="mr-2">
+                        {{ execution.status }}
+                      </v-chip>
+                      <span class="font-weight-medium">{{ getInstanceName(execution.adapter_instance_id) }}</span>
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      <span v-if="execution.finished_at">
+                        {{ $t('flows.duration') }}: {{ formatDuration(execution.started_at, execution.finished_at) }}
+                      </span>
+                      <span class="mx-2">|</span>
+                      <span>{{ $t('flows.itemsIn') }}: {{ execution.items_in }}</span>
+                      <span class="mx-2">|</span>
+                      <span>{{ $t('flows.itemsOut') }}: {{ execution.items_out }}</span>
+                    </div>
+                    <div v-if="execution.message" class="text-caption mt-1 text-grey">
+                      {{ execution.message }}
+                    </div>
+                    <v-alert v-if="execution.error_message" type="error" variant="tonal" density="compact" class="mt-2">
+                      {{ execution.error_message }}
+                    </v-alert>
+                  </v-card-text>
+                </v-card>
+              </v-timeline-item>
+            </v-timeline>
+
+            <div v-else class="text-center py-6">
+              <v-icon icon="mdi-information-outline" size="32" color="medium-emphasis" class="mb-2"></v-icon>
+              <div class="text-body-2 text-medium-emphasis">{{ $t('flows.noNodeExecutions') }}</div>
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <!-- Delete Confirmation -->
     <v-dialog v-model="deleteDialog" max-width="400px" persistent>
       <v-card rounded="xl">
@@ -301,7 +373,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, onActivated, inject, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceStatus } from '@/client'
+import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceDetail, type FlowInstanceStatus } from '@/client'
 import draggable from 'vuedraggable'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
@@ -589,6 +661,58 @@ const loadFlowInstances = async () => {
     loadingHistory.value = false
   }
 }
+
+// Instance Detail
+const instanceDetailDialog = ref(false)
+const selectedInstanceDetail = ref<FlowInstanceDetail | null>(null)
+const loadingInstanceDetail = ref(false)
+const selectedInstanceId = ref<string | null>(null)
+
+const openInstanceDetail = async (instance: FlowInstance) => {
+  selectedInstanceId.value = instance.id
+  loadingInstanceDetail.value = true
+  instanceDetailDialog.value = true
+  try {
+    const detail = await FlowsService.getFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGet({
+      instanceId: instance.id
+    })
+    selectedInstanceDetail.value = detail
+  } catch (e) {
+    console.error(e)
+    showSnackbar('Failed to load instance detail', 'error')
+    instanceDetailDialog.value = false
+  } finally {
+    loadingInstanceDetail.value = false
+    selectedInstanceId.value = null
+  }
+}
+
+const getNodeStatusColor = (status: string) => {
+  if (status === 'success') return 'success'
+  if (status === 'failed') return 'error'
+  if (status === 'running') return 'primary'
+  return 'grey'
+}
+
+const refreshInstanceDetail = async () => {
+  if (selectedInstanceDetail.value) {
+    await openInstanceDetail({ id: selectedInstanceDetail.value.id } as any)
+  }
+}
+
+const formatDuration = (startTime: string, endTime: string) => {
+  const start = new Date(startTime).getTime()
+  const end = new Date(endTime).getTime()
+  const duration = end - start
+  if (duration < 1000) {
+    return `${duration}ms`
+  } else if (duration < 60000) {
+    return `${(duration / 1000).toFixed(1)}s`
+  } else {
+    return `${(duration / 60000).toFixed(1)}min`
+  }
+}
+
 </script>
 
 <style scoped>

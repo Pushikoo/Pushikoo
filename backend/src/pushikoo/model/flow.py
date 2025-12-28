@@ -59,3 +59,35 @@ class FlowExecuteRequest(BaseModel):
     """Request body for executing a flow with optional node inclusions."""
 
     include_nodes: list[UUID] | None = None  # List of node IDs to run (None = run all)
+
+
+class FlowNodeExecutionStatus(StrEnum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    RUNNING = "running"
+
+
+class FlowNodeExecution(BaseModel):
+    """Execution details for a single node in a flow instance."""
+
+    id: UUID
+    flow_instance_id: UUID
+    adapter_instance_id: UUID
+    node_index: int
+    status: FlowNodeExecutionStatus
+    started_at: datetime
+    finished_at: datetime | None
+    message: str | None  # Getter: message IDs; others: empty
+    error_message: str | None
+    items_in: int
+    items_out: int
+
+
+class FlowInstanceDetail(BaseModel):
+    """FlowInstance with execution details for each node."""
+
+    id: UUID
+    flow_id: UUID
+    status: FlowInstanceStatus
+    created_at: datetime
+    node_executions: list[FlowNodeExecution]

@@ -311,6 +311,40 @@ export const FlowInstanceSchema = {
     title: 'FlowInstance'
 } as const;
 
+export const FlowInstanceDetailSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        flow_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Flow Id'
+        },
+        status: {
+            '$ref': '#/components/schemas/FlowInstanceStatus'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        node_executions: {
+            items: {
+                '$ref': '#/components/schemas/FlowNodeExecution'
+            },
+            type: 'array',
+            title: 'Node Executions'
+        }
+    },
+    type: 'object',
+    required: ['id', 'flow_id', 'status', 'created_at', 'node_executions'],
+    title: 'FlowInstanceDetail',
+    description: 'FlowInstance with execution details for each node.'
+} as const;
+
 export const FlowInstanceOrderSchema = {
     type: 'string',
     enum: ['created_at_desc', 'created_at_asc'],
@@ -321,6 +355,90 @@ export const FlowInstanceStatusSchema = {
     type: 'string',
     enum: ['waiting', 'running', 'completed', 'failed', 'cancelled'],
     title: 'FlowInstanceStatus'
+} as const;
+
+export const FlowNodeExecutionSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        flow_instance_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Flow Instance Id'
+        },
+        adapter_instance_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Adapter Instance Id'
+        },
+        node_index: {
+            type: 'integer',
+            title: 'Node Index'
+        },
+        status: {
+            '$ref': '#/components/schemas/FlowNodeExecutionStatus'
+        },
+        started_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Started At'
+        },
+        finished_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Finished At'
+        },
+        message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Message'
+        },
+        error_message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Error Message'
+        },
+        items_in: {
+            type: 'integer',
+            title: 'Items In'
+        },
+        items_out: {
+            type: 'integer',
+            title: 'Items Out'
+        }
+    },
+    type: 'object',
+    required: ['id', 'flow_instance_id', 'adapter_instance_id', 'node_index', 'status', 'started_at', 'finished_at', 'message', 'error_message', 'items_in', 'items_out'],
+    title: 'FlowNodeExecution',
+    description: 'Execution details for a single node in a flow instance.'
+} as const;
+
+export const FlowNodeExecutionStatusSchema = {
+    type: 'string',
+    enum: ['success', 'failed', 'running'],
+    title: 'FlowNodeExecutionStatus'
 } as const;
 
 export const FlowUpdateSchema = {

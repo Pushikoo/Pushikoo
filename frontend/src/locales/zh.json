@@ -145,6 +145,13 @@
         "selectAll": "全选",
         "selectNone": "全不选",
         "invertSelection": "反选",
+        "viewDetail": "查看详情",
+        "instanceDetail": "执行详情",
+        "duration": "持续时间",
+        "itemsIn": "输入项数",
+        "itemsOut": "输出项数",
+        "message": "消息",
+        "noNodeExecutions": "无节点执行记录",
         "executionStarted": "流程执行已启动",
         "executionFailed": "启动流程执行失败"
     },

@@ -278,6 +278,89 @@ class FlowInstanceService:
             )
 
 
+class FlowNodeExecutionService:
+    """Service for managing FlowNodeExecution records."""
+
+    @staticmethod
+    def create(
+        flow_instance_id: UUID,
+        adapter_instance_id: UUID,
+        node_index: int,
+    ) -> UUID:
+        """Create a node execution record when a node starts. Returns the record ID."""
+        from pushikoo.db import FlowNodeExecution as FlowNodeExecutionDB
+        from pushikoo.model.flow import FlowNodeExecutionStatus
+
+        with get_session() as session:
+            record = FlowNodeExecutionDB(
+                flow_instance_id=flow_instance_id,
+                adapter_instance_id=adapter_instance_id,
+                node_index=node_index,
+                status=FlowNodeExecutionStatus.RUNNING.value,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return record.id
+
+    @staticmethod
+    def update(
+        record_id: UUID,
+        status: str,
+        message: str | None = None,
+        error_message: str | None = None,
+        items_in: int = 0,
+        items_out: int = 0,
+    ) -> None:
+        """Update node execution record with final status and details."""
+        import datetime
+        from pushikoo.db import FlowNodeExecution as FlowNodeExecutionDB
+
+        with get_session() as session:
+            record = session.get(FlowNodeExecutionDB, record_id)
+            if record:
+                record.status = status
+                record.finished_at = datetime.datetime.now(datetime.timezone.utc)
+                record.message = message
+                record.error_message = error_message
+                record.items_in = items_in
+                record.items_out = items_out
+                session.add(record)
+                session.commit()
+
+    @staticmethod
+    def list_by_instance(flow_instance_id: UUID) -> list:
+        """Get all node executions for a flow instance, ordered by node_index."""
+        from pushikoo.db import FlowNodeExecution as FlowNodeExecutionDB
+        from pushikoo.model.flow import FlowNodeExecution, FlowNodeExecutionStatus
+
+        with get_session() as session:
+            records = session.exec(
+                select(FlowNodeExecutionDB)
+                .where(FlowNodeExecutionDB.flow_instance_id == flow_instance_id)
+                .order_by(FlowNodeExecutionDB.node_index)
+            ).all()
+
+            return [
+                FlowNodeExecution(
+                    id=r.id,
+                    flow_instance_id=r.flow_instance_id,
+                    adapter_instance_id=r.adapter_instance_id,
+                    node_index=r.node_index,
+                    status=FlowNodeExecutionStatus(r.status)
+                    if r.status in ("success", "failed", "running")
+                    else FlowNodeExecutionStatus.FAILED,
+                    started_at=r.started_at,
+                    finished_at=r.finished_at,
+                    message=r.message,
+                    error_message=r.error_message,
+                    items_in=r.items_in,
+                    items_out=r.items_out,
+                )
+                for r in records
+            ]
+
+
 class FlowInstanceRunner:
     """Pipeline-based flow runner that executes nodes sequentially.
 
@@ -556,7 +639,8 @@ class FlowInstanceRunner:
                 pass
 
         # Execute each node in order
-        for adapter_instance_id in self.flow_nodes:
+        for node_index, adapter_instance_id in enumerate(self.flow_nodes):
+            node_exec_id = None
             try:
                 node_obj = AdapterInstanceService.get_object_by_id(
                     UUID(adapter_instance_id)
@@ -564,6 +648,20 @@ class FlowInstanceRunner:
             except Exception as e:
                 _failed(adapter_instance_id, e)
                 return
+
+            # Create node execution record
+            # TODO: 增加expection记录，扩大记录范围，把每个节点的部分成功状态记录下来
+            try:
+                node_exec_id = FlowNodeExecutionService.create(
+                    flow_instance_id=flow_instance_id,
+                    adapter_instance_id=UUID(adapter_instance_id),
+                    node_index=node_index,
+                )
+            except Exception as ex:
+                logger.warning(f"Failed to create node execution record: {ex}")
+
+            items_in = len(content_list)
+            node_message = None
 
             try:
                 self.current_processing_adapter_inst = (
@@ -573,6 +671,10 @@ class FlowInstanceRunner:
                 if isinstance(node_obj, Getter):
                     new_contents = self._execute_getter(node_obj)
                     content_list.extend(new_contents)
+                    # Record message IDs for getter
+                    if new_contents:
+                        # Extract message identifiers from the execution context
+                        node_message = f"Retrieved {len(new_contents)} items"
                     logger.info(
                         f"Getter {node_obj.adapter_name}.{node_obj.identifier} "
                         f"added {len(new_contents)} items, total: {len(content_list)}"
@@ -598,7 +700,33 @@ class FlowInstanceRunner:
                         f"Unknown node type for {adapter_instance_id}: {type(node_obj)}"
                     )
 
+                # Update node execution as success
+                if node_exec_id:
+                    try:
+                        FlowNodeExecutionService.update(
+                            record_id=node_exec_id,
+                            status="success",
+                            message=node_message,
+                            items_in=items_in,
+                            items_out=len(content_list),
+                        )
+                    except Exception as ex:
+                        logger.warning(f"Failed to update node execution record: {ex}")
+
             except Exception as e:
+                # Update node execution as failed
+                if node_exec_id:
+                    try:
+                        FlowNodeExecutionService.update(
+                            record_id=node_exec_id,
+                            status="failed",
+                            error_message=str(e),
+                            items_in=items_in,
+                            items_out=len(content_list),
+                        )
+                    except Exception as ex:
+                        logger.warning(f"Failed to update node execution record: {ex}")
+
                 # Check if the failing node is a Getter - if so, continue with other nodes
                 if isinstance(node_obj, Getter):
                     logger.warning(

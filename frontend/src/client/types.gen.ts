@@ -80,9 +80,39 @@ export type FlowInstance = {
     created_at: string;
 };
 
+/**
+ * FlowInstance with execution details for each node.
+ */
+export type FlowInstanceDetail = {
+    id: string;
+    flow_id: string;
+    status: FlowInstanceStatus;
+    created_at: string;
+    node_executions: Array<FlowNodeExecution>;
+};
+
 export type FlowInstanceOrder = 'created_at_desc' | 'created_at_asc';
 
 export type FlowInstanceStatus = 'waiting' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * Execution details for a single node in a flow instance.
+ */
+export type FlowNodeExecution = {
+    id: string;
+    flow_instance_id: string;
+    adapter_instance_id: string;
+    node_index: number;
+    status: FlowNodeExecutionStatus;
+    started_at: string;
+    finished_at: (string | null);
+    message: (string | null);
+    error_message: (string | null);
+    items_in: number;
+    items_out: number;
+};
+
+export type FlowNodeExecutionStatus = 'success' | 'failed' | 'running';
 
 export type FlowUpdate = {
     name?: (string | null);
@@ -303,6 +333,12 @@ export type DeleteCronApiV1CronsCronIdDeleteData = {
 
 export type DeleteCronApiV1CronsCronIdDeleteResponse = (void);
 
+export type GetFileFileAccessIdGetData = {
+    accessId: string;
+};
+
+export type GetFileFileAccessIdGetResponse = (unknown);
+
 export type CreateFlowApiV1FlowsPostData = {
     requestBody: FlowCreate;
 };
@@ -332,6 +368,12 @@ export type GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData = {
 };
 
 export type GetFlowInstanceApiV1FlowsInstancesInstanceIdGetResponse = (FlowInstance);
+
+export type GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetData = {
+    instanceId: string;
+};
+
+export type GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetResponse = (FlowInstanceDetail);
 
 export type GetFlowApiV1FlowsFlowIdGetData = {
     flowId: string;

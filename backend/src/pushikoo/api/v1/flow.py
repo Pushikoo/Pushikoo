@@ -7,6 +7,7 @@ from pushikoo.model.flow import (
     FlowCreate,
     FlowExecuteRequest,
     FlowInstance,
+    FlowInstanceDetail,
     FlowInstanceListFilter,
     FlowInstanceOrder,
     FlowInstanceStatus,
@@ -17,6 +18,7 @@ from pushikoo.model.pagination import Page
 from pushikoo.service.refresh import (
     FlowInstanceRunner,
     FlowInstanceService,
+    FlowNodeExecutionService,
     FlowService,
 )
 
@@ -70,6 +72,28 @@ def get_flow_instance(instance_id: UUID) -> FlowInstance:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Flow instance not found",
         )
+
+
+@router.get("/instances/{instance_id}/detail")
+def get_flow_instance_detail(instance_id: UUID) -> FlowInstanceDetail:
+    """Get detailed execution information for a flow instance."""
+    try:
+        instance = FlowInstanceService.get(instance_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Flow instance not found",
+        )
+
+    node_executions = FlowNodeExecutionService.list_by_instance(instance_id)
+
+    return FlowInstanceDetail(
+        id=instance.id,
+        flow_id=instance.flow_id,
+        status=instance.status,
+        created_at=instance.created_at,
+        node_executions=node_executions,
+    )
 
 
 @router.get("/{flow_id}")
