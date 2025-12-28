@@ -154,38 +154,7 @@ class AdapterService:
 
 class AdapterInstanceService:
     instance_objects: dict[UUID, InterfaceAdapter] = {}
-
-    @staticmethod
-    def init() -> None:
-        logger.info("Initializing adapter instances from database")
-        with get_session() as session:
-            rows = session.exec(select(AdapterInstanceDB)).all()
-
-        for row in rows:
-            try:
-                AdapterInstanceService.instance_objects[row.id] = (
-                    AdapterService.create_instance(row.adapter_name, row.identifier)
-                )
-            except Exception:
-                logger.warning(
-                    f"Failed to load adapter instance {row.id}: {row.adapter_name}.{row.identifier}"
-                )
-
-    @staticmethod
-    def reload(adapter_names: Iterable) -> None:
-        logger.info(f"Reloading adapter instances for {adapter_names}")
-
-        for (
-            instance_obj_uuid,
-            instance_obj,
-        ) in AdapterInstanceService.instance_objects.copy().items():
-            for adapter_name in adapter_names:
-                if instance_obj.adapter_name == adapter_name:
-                    AdapterInstanceService.instance_objects[instance_obj_uuid] = (
-                        AdapterService.create_instance(
-                            instance_obj.adapter_name, instance_obj.identifier
-                        )
-                    )
+    instance_versions: dict[UUID, str] = {}
 
     @staticmethod
     def get_object(adapter_name: str, identifier: str) -> InterfaceAdapter:
@@ -197,17 +166,39 @@ class AdapterInstanceService:
 
     @staticmethod
     def get_object_by_id(instance_id: UUID) -> InterfaceAdapter:
+        with get_session() as session:
+            row = session.get(AdapterInstanceDB, instance_id)
+
+        if not row:
+            raise KeyError(f"Adapter instance {instance_id} not found")
+
+        adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
+        current_version = adapter_class.meta.version
+
         if instance_id in AdapterInstanceService.instance_objects:
-            return AdapterInstanceService.instance_objects[instance_id]
+            cached_version = AdapterInstanceService.instance_versions.get(instance_id)
+
+            if cached_version != current_version:
+                logger.info(
+                    f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
+                    f"{cached_version} -> {current_version}, re-instantiating"
+                )
+
+                del AdapterInstanceService.instance_objects[instance_id]
+                del AdapterInstanceService.instance_versions[instance_id]
+                new_instance = AdapterService.create_instance(
+                    row.adapter_name, row.identifier
+                )
+                AdapterInstanceService.instance_objects[instance_id] = new_instance
+                AdapterInstanceService.instance_versions[instance_id] = current_version
+
+                return new_instance
+            else:
+                return AdapterInstanceService.instance_objects[instance_id]
         else:
-            with get_session() as session:
-                row = session.get(AdapterInstanceDB, instance_id)
-
-            if not row:
-                raise KeyError(f"Adapter instance {instance_id} not found")
-
             instance = AdapterService.create_instance(row.adapter_name, row.identifier)
             AdapterInstanceService.instance_objects[instance_id] = instance
+            AdapterInstanceService.instance_versions[instance_id] = current_version
             return instance
 
     @staticmethod

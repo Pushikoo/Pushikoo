@@ -87,11 +87,8 @@ def install_package(
 )
 def uninstall_package(
     package_name: str,
-    remove_loaded_modules: bool = True,
 ) -> PipCommandResult:
-    result = PIPService.uninstall(
-        package_name, remove_loaded_modules=remove_loaded_modules
-    )
+    result = PIPService.uninstall(package_name)
     if result.get("ok"):
         return PipCommandResult(target=result["target"], output=result["output"])
     # "not installed" or other pip errors are exposed directly

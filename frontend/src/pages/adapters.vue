@@ -666,7 +666,6 @@ const performUninstall = async () => {
     try {
         const result = await PipService.uninstallPackageApiV1PipPkgsPackageNameDelete({
             packageName: adapterToUninstall.value.name,
-            removeLoadedModules: true
         })
         uninstallMessage.value = result.output || `Successfully uninstalled ${result.target}`
         uninstallMessageType.value = 'success'

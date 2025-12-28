@@ -170,106 +170,6 @@ class PIPService:
             ensurepip.bootstrap()
 
     @staticmethod
-    def _reload_adapters_if_needed(pip_output: str = "") -> None:
-        """
-        Reload adapter packages after a pip operation.
-
-        This is only concerned with distributions that expose the
-        'pushikoo.adapter' entry point group, and will:
-        - purge their loaded modules from sys.modules (only if mentioned in pip_output)
-        - re-initialize AdapterInstanceService
-        - reload CronService to ensure scheduler uses fresh instances
-
-        Args:
-            pip_output: The stdout/stderr from pip command. Only adapters mentioned
-                        in this output will be purged.
-        """
-        # TODO: Refactor the cyclic import.
-        from importlib import metadata as _metadata  # local import
-
-        from pushikoo.service.adapter import (
-            ADAPTER_ENTRY_GROUP,
-            AdapterInstanceService,
-        )
-
-        try:
-            adapter_dist_names: set[str] = set()
-            for dist in _metadata.distributions():
-                try:
-                    entry_points = dist.entry_points
-                except Exception:
-                    continue
-                for ep in entry_points:
-                    if ep.group == ADAPTER_ENTRY_GROUP:
-                        dist_name = dist.metadata.get("Name")
-                        if dist_name:
-                            adapter_dist_names.add(dist_name)
-                        break
-
-            if not adapter_dist_names:
-                return
-
-            # Only purge adapters that are mentioned in the pip output
-            purged_adapters: set[str] = set()
-            for dist_name in adapter_dist_names:
-                # Check if this adapter's name appears in pip output
-                # Normalize both for comparison (replace - with _ and vice versa)
-                dist_normalized = dist_name.lower().replace("-", "_")
-                output_normalized = pip_output.lower().replace("-", "_")
-                if dist_normalized in output_normalized:
-                    PIPService._purge_modules_by_distribution(dist_name)
-                    purged_adapters.add(dist_name)
-
-            if purged_adapters:
-                AdapterInstanceService.reload(purged_adapters)
-                logger.info(
-                    "Reloaded adapter instances after pip operation "
-                    f"for distributions: {sorted(purged_adapters)}"
-                )
-            else:
-                logger.debug(
-                    "No adapter distributions found in pip output; skipping reload."
-                )
-        except Exception as e:  # pragma: no cover - defensive
-            logger.error(f"Failed to reload adapters after pip operation: {e}")
-
-    @staticmethod
-    def _purge_modules_by_distribution(dist_name: str) -> None:
-        """Purge all modules belonging to a given installed distribution, using importlib.metadata."""
-        try:
-            dist = metadata.distribution(dist_name)
-        except metadata.PackageNotFoundError:
-            logger.warning(f"Distribution '{dist_name}' not found; nothing to purge.")
-            return
-
-        # Gets all top-level packages (directory names) corresponding to this distribution package
-        top_levels = set()
-        try:
-            top_level_text = dist.read_text("top_level.txt")
-            if top_level_text:
-                for line in top_level_text.splitlines():
-                    name = line.strip()
-                    if name:
-                        top_levels.add(name)
-        except FileNotFoundError:
-            # Some packages do not have top_level.txt, so the next best choice is to use the package name to infer
-            top_levels.add(dist.metadata["Name"].replace("-", "_"))
-
-        logger.debug(f"Purging modules for dist '{dist_name}': {sorted(top_levels)}")
-
-        removed_any = False
-        for mod in list(sys.modules):
-            if any(mod == top or mod.startswith(top + ".") for top in top_levels):
-                del sys.modules[mod]
-                removed_any = True
-                logger.debug(f"Unloaded module: {mod}")
-
-        if removed_any:
-            logger.info(f"Purged modules from distribution '{dist_name}'.")
-        else:
-            logger.info(f"No loaded modules found for distribution '{dist_name}'.")
-
-    @staticmethod
     def add_index(url: str) -> str:
         """Add a new index URL."""
         with get_session() as session:
@@ -419,10 +319,6 @@ class PIPService:
 
         logger.info(f"Successfully installed package: {target}")
 
-        # After a successful install, refresh adapter-related packages so that
-        # newly installed adapter versions are picked up without restarting.
-        PIPService._reload_adapters_if_needed(output)
-
         return {
             "ok": True,
             "target": target,
@@ -430,15 +326,12 @@ class PIPService:
         }
 
     @staticmethod
-    def uninstall(
-        package_name: str, *, remove_loaded_modules: bool = True
-    ) -> dict[str, object]:
+    def uninstall(package_name: str) -> dict[str, object]:
         """
         Uninstall a package using pip.
 
         Args:
             package_name: Name of the package to uninstall
-            remove_loaded_modules: Whether to remove loaded modules from memory
         """
         PIPService._ensure_pip()
 
@@ -481,15 +374,6 @@ class PIPService:
             }
 
         logger.info(f"Package uninstalled successfully: {package_name}")
-
-        if remove_loaded_modules:
-            logger.debug(f"Purging loaded modules for distribution: {package_name}")
-            PIPService._purge_modules_by_distribution(package_name)
-            logger.info(f"Modules purged for distribution: {package_name}")
-
-        # After a successful uninstall, also refresh adapter-related packages so
-        # that in-memory state is consistent with the new environment.
-        PIPService._reload_adapters_if_needed(output)
 
         return {
             "ok": True,

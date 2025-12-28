@@ -746,7 +746,6 @@ export class PipService {
      * Uninstall Package
      * @param data The data for the request.
      * @param data.packageName
-     * @param data.removeLoadedModules
      * @returns PipCommandResult Successful Response
      * @throws ApiError
      */
@@ -756,9 +755,6 @@ export class PipService {
             url: '/api/v1/pip/pkgs/{package_name}',
             path: {
                 package_name: data.packageName
-            },
-            query: {
-                remove_loaded_modules: data.removeLoadedModules
             },
             errors: {
                 422: 'Validation Error'
@@ -992,7 +988,6 @@ export class V1Service {
      * Uninstall Package
      * @param data The data for the request.
      * @param data.packageName
-     * @param data.removeLoadedModules
      * @returns PipCommandResult Successful Response
      * @throws ApiError
      */
@@ -1002,9 +997,6 @@ export class V1Service {
             url: '/api/v1/pip/pkgs/{package_name}',
             path: {
                 package_name: data.packageName
-            },
-            query: {
-                remove_loaded_modules: data.removeLoadedModules
             },
             errors: {
                 422: 'Validation Error'

@@ -506,7 +506,6 @@ export type InstallPackageApiV1PipPkgsSpecPostResponse = (PipCommandResult);
 
 export type UninstallPackageApiV1PipPkgsPackageNameDeleteData = {
     packageName: string;
-    removeLoadedModules?: boolean;
 };
 
 export type UninstallPackageApiV1PipPkgsPackageNameDeleteResponse = (PipCommandResult);
