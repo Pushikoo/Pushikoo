@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/Pushikoo/Pushikoo/compare/v0.7.1...v0.8.0) (2025-12-28)
+
+
+### Features
+
+* **flows:** improve drag-and-drop styling for flow nodes ([1634f82](https://github.com/Pushikoo/Pushikoo/commit/1634f8232f41799751e14863f9b1d3028f4f9cae))
+
+
+### Performance Improvements
+
+* **vite:** add optimizeDeps configuration for better performance ([4a993db](https://github.com/Pushikoo/Pushikoo/commit/4a993dbb40157607a83d67c9570f0d5fe1977114))
+
 ## [0.7.1](https://github.com/Pushikoo/Pushikoo/compare/v0.7.0...v0.7.1) (2025-12-23)
 
 
