@@ -386,11 +386,28 @@ const tab = ref('adapters')
 const adapters = ref<AdapterMeta[]>([])
 const loadingAdapters = ref(false)
 
+// Type priority for sorting (lower = first)
+const adapterTypePriority: Record<AdapterType, number> = {
+    'getter': 1,
+    'processer': 2,
+    'pusher': 3,
+}
+
 const loadAdapters = async () => {
     loadingAdapters.value = true
     try {
         const list = await AdaptersService.listAdaptersApiV1AdaptersGet()
-        if (list) adapters.value = list
+        if (list) {
+            // Sort by type first, then by name
+            adapters.value = list.sort((a, b) => {
+                const typePriorityA = adapterTypePriority[a.type] ?? 99
+                const typePriorityB = adapterTypePriority[b.type] ?? 99
+                if (typePriorityA !== typePriorityB) {
+                    return typePriorityA - typePriorityB
+                }
+                return a.name.localeCompare(b.name)
+            })
+        }
     } catch (e) {
         console.error(e)
     } finally {
