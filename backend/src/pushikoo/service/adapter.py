@@ -110,10 +110,14 @@ class AdapterService:
                     or ep.dist.version != AdapterService.adapter_versions[name]
                 ):
                     logger.debug(f"Loading or reloading adapter {name}...")
-                    cls = AdapterService._force_load_adapter(ep)
-                    AdapterService.adapters[name] = cls
-                    AdapterService.adapter_versions[name] = ep.dist.version
-                    AdapterService.adapter_metas[name] = getattr(cls, "meta", None)
+                    try:
+                        cls = AdapterService._force_load_adapter(ep)
+                        AdapterService.adapters[name] = cls
+                        AdapterService.adapter_versions[name] = ep.dist.version
+                        AdapterService.adapter_metas[name] = getattr(cls, "meta", None)
+                    except Exception:
+                        # Error already logged in _force_load_adapter, continue with other adapters
+                        continue
 
     @staticmethod
     def list_all_adapter_with_type() -> list[tuple[type, AdapterMeta]]:
