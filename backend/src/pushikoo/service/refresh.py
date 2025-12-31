@@ -449,7 +449,7 @@ class FlowInstanceRunner:
             except NotImplementedError:
                 pass
             except Exception as e:
-                logger.warning(
+                logger.exception(
                     f"Getter {getter_full_name} details() failed, falling back to detail(): {e}"
                 )
 
@@ -468,7 +468,7 @@ class FlowInstanceRunner:
                             f"identifier {message_id} after {self.ATTEMPT_COUNT} attempts."
                         )
                         self._issue_warning(warning_text)
-                        logger.error(f"Failed to get detail for {message_id}: {e}")
+                        logger.exception(f"Failed to get detail for {message_id}: {e}")
                     else:
                         logger.warning(f"Getter detail() attempt {attempt} failed: {e}")
             return None
@@ -569,7 +569,7 @@ class FlowInstanceRunner:
                         self._issue_warning(warning_text)
                         raise
                     else:
-                        logger.warning(f"Processer attempt {attempt} failed: {e}")
+                        logger.exception(f"Processer attempt {attempt} failed: {e}")
 
         return result
 
@@ -593,7 +593,7 @@ class FlowInstanceRunner:
                             f"after {self.ATTEMPT_COUNT} attempts. Error: {str(e)}"
                         )
                         self._issue_warning(warning_text)
-                        logger.error(
+                        logger.exception(
                             f"Pusher {pusher_full_name} failed, skipping to next message: {e}"
                         )
                         break  # Skip to next message instead of raising
@@ -627,7 +627,7 @@ class FlowInstanceRunner:
             )
 
         def _failed(adapter_instance_id, e):
-            logger.error(f"Failed to process node {adapter_instance_id}: {e}")
+            logger.exception(f"Failed to process node {adapter_instance_id}: {e}")
             self._issue_warning(
                 f"Flow {self.flow_id} failed at node {adapter_instance_id}: {str(e)}"
             )
