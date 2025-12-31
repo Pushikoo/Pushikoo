@@ -162,10 +162,30 @@ def _join_output(stdout: str, stderr: str) -> str:
 
 
 class PIPService:
-    """Service for managing adapter packages using pip."""
+    """Service for managing adapter packages using pip or uv."""
+
+    _uv_available: bool | None = None  # cached result
+
+    @staticmethod
+    def _has_uv() -> bool:
+        """Check if uv is available in the system."""
+        if PIPService._uv_available is not None:
+            return PIPService._uv_available
+        try:
+            result = subprocess.run(
+                ["uv", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            PIPService._uv_available = result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            PIPService._uv_available = False
+        return PIPService._uv_available
 
     @staticmethod
     def _ensure_pip():
+        """Ensure pip is available (fallback when uv is not available)."""
         if importlib.util.find_spec("pip") is None:
             ensurepip.bootstrap()
 
@@ -238,7 +258,6 @@ class PIPService:
         Raises:
             ValueError: If spec or URLs fail validation
         """
-        PIPService._ensure_pip()
         target = (
             str(spec.expanduser().resolve()) if isinstance(spec, Path) else spec.strip()
         )
@@ -275,7 +294,16 @@ class PIPService:
                         "output": f"Invalid extra index URL: {error}",
                     }
 
-        cmd = [sys.executable, "-m", "pip", "install", target]
+        # Choose installer: prefer uv, fallback to pip
+        use_uv = PIPService._has_uv()
+        if use_uv:
+            cmd = ["uv", "pip", "install", target]
+            installer_name = "uv"
+        else:
+            PIPService._ensure_pip()
+            cmd = [sys.executable, "-m", "pip", "install", target]
+            installer_name = "pip"
+
         if force:
             cmd.append("--force-reinstall")
         if upgrade:
@@ -293,7 +321,7 @@ class PIPService:
         if extra_args:
             cmd.extend(list(extra_args))
 
-        logger.info(f"Installing package: {target}")
+        logger.info(f"Installing package with {installer_name}: {target}")
         logger.debug(f"Executing command: {' '.join(cmd)}")
 
         result = subprocess.run(
@@ -328,13 +356,11 @@ class PIPService:
     @staticmethod
     def uninstall(package_name: str) -> dict[str, object]:
         """
-        Uninstall a package using pip.
+        Uninstall a package using pip or uv.
 
         Args:
             package_name: Name of the package to uninstall
         """
-        PIPService._ensure_pip()
-
         # Pre-check if package is installed so that "not installed" is exposed clearly.
         try:
             metadata.distribution(package_name)
@@ -345,9 +371,18 @@ class PIPService:
                 "target": package_name,
                 "output": f"Package '{package_name}' is not installed",
             }
-        logger.info(f"Uninstalling package: {package_name}")
 
-        cmd = [sys.executable, "-m", "pip", "uninstall", "-y", package_name]
+        # Choose installer: prefer uv, fallback to pip
+        use_uv = PIPService._has_uv()
+        if use_uv:
+            cmd = ["uv", "pip", "uninstall", package_name]
+            installer_name = "uv"
+        else:
+            PIPService._ensure_pip()
+            cmd = [sys.executable, "-m", "pip", "uninstall", "-y", package_name]
+            installer_name = "pip"
+
+        logger.info(f"Uninstalling package with {installer_name}: {package_name}")
         logger.debug(f"Executing command: {' '.join(cmd)}")
 
         result = subprocess.run(
