@@ -1,5 +1,8 @@
-from importlib.metadata import EntryPoint, entry_points
+import importlib
+from importlib.metadata import Distribution, EntryPoint, entry_points
 from pathlib import Path
+import sys
+import threading
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -47,29 +50,66 @@ class AdapterFrameworkContext(AdapterFrameworkContextInterface):
 class AdapterService:
     """Service for managing adapter discovery and instantiation."""
 
+    adapters: dict[str, type] = {}
+    adapter_versions: dict[str, str] = {}
+    adapter_metas: dict[str, InterfaceAdapterMeta] = {}
+
+    ensure_load_adapter_lock = threading.Lock()
+
     @staticmethod
     def _discover() -> list[EntryPoint]:
         """Discover all adapter entry points."""
         return list(entry_points().select(group=ADAPTER_ENTRY_GROUP))
 
     @staticmethod
-    def list_all_adapter() -> list[tuple[type, InterfaceAdapterMeta]]:
-        """List all available adapter classes with their metadata (without type)."""
-        adapters: list[tuple[type, InterfaceAdapterMeta]] = []
-        for ep in AdapterService._discover():
-            cls = ep.load()
-            meta = getattr(cls, "meta", None)
-            if not isinstance(meta, InterfaceAdapterMeta):
-                raise TypeError(f"Adapter {ep.name} has invalid or missing meta")
-            adapters.append((cls, meta))
-        return adapters
+    def _remove_module_recursively(module_name: str):
+        for sys_module_name in list(sys.modules):
+            if sys_module_name.startswith(module_name):
+                sys.modules.pop(sys_module_name)
+
+    @staticmethod
+    def _force_load_adapter(entry_point: EntryPoint) -> type:
+        module_name = entry_point.value.split(":")[0].split(".")[0]
+        AdapterService._remove_module_recursively(module_name)
+
+        importlib.import_module(module_name)
+        return entry_point.load()
+
+    @staticmethod
+    def ensure_load_adapter():
+        with AdapterService.ensure_load_adapter_lock:
+            discovered_eps = AdapterService._discover()
+            discovered_names = {ep.dist.name for ep in discovered_eps}
+
+            # Remove uninstalled adapters
+            for name in list(AdapterService.adapters.keys()):
+                if name not in discovered_names:
+                    logger.info(f"Adapter {name} was uninstalled, removing from cache")
+                    AdapterService.adapters.pop(name, None)
+                    AdapterService.adapter_versions.pop(name, None)
+                    AdapterService.adapter_metas.pop(name, None)
+
+            # Load or reload adapters
+            for ep in discovered_eps:
+                name = ep.dist.name
+                if (
+                    name not in AdapterService.adapter_versions
+                    or ep.dist.version != AdapterService.adapter_versions[name]
+                ):
+                    logger.debug(f"Loading or reloading adapter {name}...")
+                    cls = AdapterService._force_load_adapter(ep)
+                    AdapterService.adapters[name] = cls
+                    AdapterService.adapter_versions[name] = ep.dist.version
+                    AdapterService.adapter_metas[name] = getattr(cls, "meta", None)
 
     @staticmethod
     def list_all_adapter_with_type() -> list[tuple[type, AdapterMeta]]:
         """List all available adapter classes with metadata including adapter type."""
         result: list[tuple[type, AdapterMeta]] = []
+        AdapterService.ensure_load_adapter()
 
-        for cls, meta in AdapterService.list_all_adapter():
+        for adapter_name, cls in AdapterService.adapters.items():
+            meta = AdapterService.adapter_metas[adapter_name]
             if issubclass(cls, Getter):
                 adapter_type = AdapterType.GETTER
             elif issubclass(cls, Pusher):
@@ -93,14 +133,14 @@ class AdapterService:
     def get_clsobj_by_name(adapter_name) -> type[Adapter]:
         """Get adapter class by name."""
         adapter_matched = [
-            (adapter_class, adapter_meta)
-            for adapter_class, adapter_meta in AdapterService.list_all_adapter()
-            if adapter_meta.name == adapter_name
+            (stored_adapter_name, stored_adapter_class)
+            for stored_adapter_name, stored_adapter_class in AdapterService.adapters.items()
+            if stored_adapter_name == adapter_name
         ]
         if not adapter_matched:
             raise KeyError(f"Adapter class {adapter_name} not found")
 
-        AdapterClass, _adapter_meta = adapter_matched[0]
+        _adapter_name, AdapterClass = adapter_matched[0]
         return AdapterClass
 
     @staticmethod
@@ -155,6 +195,7 @@ class AdapterService:
 class AdapterInstanceService:
     instance_objects: dict[UUID, InterfaceAdapter] = {}
     instance_versions: dict[UUID, str] = {}
+    instance_lock = threading.Lock()
 
     @staticmethod
     def get_object(adapter_name: str, identifier: str) -> InterfaceAdapter:
@@ -175,31 +216,38 @@ class AdapterInstanceService:
         adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
         current_version = adapter_class.meta.version
 
-        if instance_id in AdapterInstanceService.instance_objects:
-            cached_version = AdapterInstanceService.instance_versions.get(instance_id)
-
-            if cached_version != current_version:
-                logger.info(
-                    f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
-                    f"{cached_version} -> {current_version}, re-instantiating"
+        with AdapterInstanceService.instance_lock:
+            if instance_id in AdapterInstanceService.instance_objects:
+                cached_version = AdapterInstanceService.instance_versions.get(
+                    instance_id
                 )
 
-                del AdapterInstanceService.instance_objects[instance_id]
-                del AdapterInstanceService.instance_versions[instance_id]
-                new_instance = AdapterService.create_instance(
+                if cached_version != current_version:
+                    logger.info(
+                        f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
+                        f"{cached_version} -> {current_version}, re-instantiating"
+                    )
+
+                    del AdapterInstanceService.instance_objects[instance_id]
+                    del AdapterInstanceService.instance_versions[instance_id]
+                    new_instance = AdapterService.create_instance(
+                        row.adapter_name, row.identifier
+                    )
+                    AdapterInstanceService.instance_objects[instance_id] = new_instance
+                    AdapterInstanceService.instance_versions[instance_id] = (
+                        current_version
+                    )
+
+                    return new_instance
+                else:
+                    return AdapterInstanceService.instance_objects[instance_id]
+            else:
+                instance = AdapterService.create_instance(
                     row.adapter_name, row.identifier
                 )
-                AdapterInstanceService.instance_objects[instance_id] = new_instance
+                AdapterInstanceService.instance_objects[instance_id] = instance
                 AdapterInstanceService.instance_versions[instance_id] = current_version
-
-                return new_instance
-            else:
-                return AdapterInstanceService.instance_objects[instance_id]
-        else:
-            instance = AdapterService.create_instance(row.adapter_name, row.identifier)
-            AdapterInstanceService.instance_objects[instance_id] = instance
-            AdapterInstanceService.instance_versions[instance_id] = current_version
-            return instance
+                return instance
 
     @staticmethod
     def get(instance_id: UUID) -> AdapterInstance:
@@ -292,6 +340,7 @@ class AdapterInstanceService:
             session.commit()
 
         AdapterInstanceService.instance_objects.pop(instance_id, None)
+        AdapterInstanceService.instance_versions.pop(instance_id, None)
 
         logger.info(f"Deleted adapter instance: {adapter_name}.{identifier}")
 
