@@ -69,11 +69,24 @@ class AdapterService:
 
     @staticmethod
     def _force_load_adapter(entry_point: EntryPoint) -> type:
+        """Force reload an adapter module and return its class.
+
+        If loading fails, removes the adapter from cache to prevent inconsistent state.
+        """
         module_name = entry_point.value.split(":")[0].split(".")[0]
+        dist_name = entry_point.dist.name
         AdapterService._remove_module_recursively(module_name)
 
-        importlib.import_module(module_name)
-        return entry_point.load()
+        try:
+            importlib.import_module(module_name)
+            return entry_point.load()
+        except Exception as e:
+            logger.exception(f"Failed to load adapter {dist_name}: {e}")
+            # Clean up to prevent inconsistent state
+            AdapterService.adapters.pop(dist_name, None)
+            AdapterService.adapter_versions.pop(dist_name, None)
+            AdapterService.adapter_metas.pop(dist_name, None)
+            raise
 
     @staticmethod
     def ensure_load_adapter():
