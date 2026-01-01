@@ -1,7 +1,8 @@
 <template>
   <v-app>
     <!-- Navigation Drawer -->
-    <v-navigation-drawer v-model="drawer" :temporary="isMobile" :permanent="!isMobile" color="surface" class="nav-drawer">
+    <v-navigation-drawer v-model="drawer" :temporary="isMobile" :permanent="!isMobile" color="surface"
+      class="nav-drawer">
       <!-- Header -->
       <div class="d-flex align-center pa-4">
         <!-- <v-icon icon="mdi-rocket-launch" color="primary" class="mr-2"></v-icon> -->
@@ -23,6 +24,9 @@
       <template v-slot:append>
         <v-divider></v-divider>
         <div class="pa-2">
+          <div v-if="appVersion" class="text-caption text-medium-emphasis px-3 py-2">
+            v{{ appVersion }}
+          </div>
           <!-- Language Switcher -->
           <v-menu>
             <template v-slot:activator="{ props }">
@@ -118,6 +122,24 @@ import { useRouter, useRoute } from 'vue-router'
 import { useTheme, useDisplay } from 'vuetify'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
+
+// Get version from Vite env variable (set during build) or fallback to _version.json
+const getAppVersion = (): string | undefined => {
+  // Try Vite env variable first (best practice)
+  const envVersion = import.meta.env.VITE_APP_VERSION
+  if (envVersion) return envVersion
+
+  // Fallback to _version.json if it exists (during dev/build)
+  try {
+    // Dynamic import would be async, so we skip this fallback at runtime
+    // The version file is only used during build process
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+const appVersion = getAppVersion()
 
 const { t, locale } = useI18n()
 const { mobile } = useDisplay()

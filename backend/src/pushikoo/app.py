@@ -16,6 +16,16 @@ from pushikoo.service.refresh import CronService
 from pushikoo.util.setting import settings
 
 
+def _get_version() -> str | None:
+    """Get version from package metadata."""
+    try:
+        from importlib.metadata import version
+
+        return version("pushikoo")
+    except Exception:
+        return None
+
+
 def _activate_venv() -> None:
     """
     Simulate virtual environment activation by modifying PATH.
@@ -59,7 +69,14 @@ def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
 
 def main() -> None:
     _activate_venv()
-    logger.info("Pushikoo started")
+
+    # Display version if available
+    version = _get_version()
+    if version:
+        logger.info(f"Pushikoo v{version} started")
+    else:
+        logger.info("Pushikoo started")
+
     if settings.ENVIRONMENT != "local":
         logger.remove()
         logger.add(

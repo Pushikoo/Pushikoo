@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -23,18 +24,36 @@ def safe_copy(src: Path, dst: Path):
     shutil.copytree(str(src), str(dst))
 
 
-def run(cmd, cwd):
+def run(cmd, cwd, env=None):
     print(f"Running: {cmd}")  # run
-    subprocess.run(cmd, shell=True, check=True, cwd=cwd)
+    subprocess.run(cmd, shell=True, check=True, cwd=cwd, env=env)
+
+
+def get_version() -> str:
+    """Get version using hatch version command."""
+    result = subprocess.run(
+        ["hatch", "version"],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
 
 
 def main():
+    # Get version
+    version = get_version()
+    print(f"Building version: {version}")
+
     # if not (ROOT / ".git").exists():
     #    raise SystemExit("Error: must run in project root")
 
-    # frontend build
+    # frontend build with version env var
     safe_rmdir(FRONTEND_DIST)
-    run("pnpm build", cwd=FRONTEND)
+    build_env = os.environ.copy()
+    build_env["VITE_APP_VERSION"] = version
+    run("pnpm build", cwd=FRONTEND, env=build_env)
 
     # backend prepare
     safe_rmdir(ROOT_DIST)
