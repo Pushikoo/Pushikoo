@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/Pushikoo/Pushikoo/compare/v0.9.0...v0.10.0) (2026-01-01)
+
+
+### Features
+
+* add cron expression editor component with preset and custom modes ([2c435ee](https://github.com/Pushikoo/Pushikoo/commit/2c435ee5055c1f9ff7bb8adad6922d8295e4d5de))
+* add version display in backend startup and frontend sidebar ([d01cfd9](https://github.com/Pushikoo/Pushikoo/commit/d01cfd91fda083f521347e5cf0776ae3ceb949e1))
+
 ## [0.9.0](https://github.com/Pushikoo/Pushikoo/compare/v0.8.1...v0.9.0) (2026-01-01)
 
 
