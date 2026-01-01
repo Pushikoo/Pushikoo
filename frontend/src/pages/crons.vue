@@ -83,7 +83,7 @@
     </v-row>
 
     <!-- Create Dialog -->
-    <v-dialog v-model="dialog" max-width="500px" persistent :fullscreen="$vuetify.display.smAndDown">
+    <v-dialog v-model="dialog" max-width="600px" persistent :fullscreen="$vuetify.display.smAndDown">
       <v-card :rounded="$vuetify.display.smAndDown ? '0' : 'xl'">
         <v-card-title class="d-flex align-center pa-4">
           <v-icon icon="mdi-plus-circle" class="mr-2"></v-icon>
@@ -109,30 +109,15 @@
               </template>
             </v-autocomplete>
 
-            <v-text-field v-model="newItem.cron" :label="$t('crons.cronExpression')" placeholder="*/30 * * * *"
-              prepend-inner-icon="mdi-clock-outline" :rules="[v => !!v || $t('common.required')]"
-              :hint="$t('crons.standardCronFormatHint')" persistent-hint></v-text-field>
-
-            <v-alert type="info" variant="tonal" density="compact" class="mt-4">
-              <div class="text-caption">
-                <strong>{{ $t('crons.cronFieldsTitle') }}</strong><br>
-                • 5 {{ $t('crons.fields') }}: <code>min hr day month week</code><br>
-                • 6 {{ $t('crons.fields') }}: <code>sec min hr day month week</code><br>
-                • 7 {{ $t('crons.fields') }}: <code>sec min hr day month week year</code><br>
-                <br>
-                <strong>{{ $t('crons.examples') }}</strong><br>
-                • <code>*/5 * * * *</code> - {{ $t('crons.everyFiveMinutes') }}<br>
-                • <code>30 * * * * *</code> - {{ $t('crons.everyMinuteAt30s') }}<br>
-                • <code>0 0 * * *</code> - {{ $t('crons.dailyAtMidnight') }}
-              </div>
-            </v-alert>
+            <CronEditor v-model="newItem.cron" @valid="createCronValid = $event" />
           </v-form>
         </v-card-text>
         <v-divider></v-divider>
         <v-card-actions class="pa-2 pa-sm-4">
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="closeDialog">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="saveItem" :loading="saving" :disabled="!newItem.flow_id || !newItem.cron">
+          <v-btn color="primary" @click="saveItem" :loading="saving"
+            :disabled="!newItem.flow_id || !newItem.cron || !createCronValid">
             {{ $t('common.create') }}
           </v-btn>
         </v-card-actions>
@@ -160,7 +145,7 @@
     </v-dialog>
 
     <!-- Edit Dialog -->
-    <v-dialog v-model="editDialog" max-width="500px" persistent :fullscreen="$vuetify.display.smAndDown">
+    <v-dialog v-model="editDialog" max-width="600px" persistent :fullscreen="$vuetify.display.smAndDown">
       <v-card :rounded="$vuetify.display.smAndDown ? '0' : 'xl'">
         <v-card-title class="d-flex align-center pa-4">
           <v-icon icon="mdi-pencil" class="mr-2"></v-icon>
@@ -171,30 +156,15 @@
         <v-divider></v-divider>
         <v-card-text class="pa-4">
           <v-form ref="editForm" @submit.prevent="saveEditItem">
-            <v-text-field v-model="editItem.cron" :label="$t('crons.cronExpression')" placeholder="*/30 * * * *"
-              prepend-inner-icon="mdi-clock-outline" :rules="[v => !!v || $t('common.required')]"
-              :hint="$t('crons.standardCronFormatHint')" persistent-hint></v-text-field>
-
-            <v-alert type="info" variant="tonal" density="compact" class="mt-4">
-              <div class="text-caption">
-                <strong>{{ $t('crons.cronFieldsTitle') }}</strong><br>
-                • 5 {{ $t('crons.fields') }}: <code>min hr day month week</code><br>
-                • 6 {{ $t('crons.fields') }}: <code>sec min hr day month week</code><br>
-                • 7 {{ $t('crons.fields') }}: <code>sec min hr day month week year</code><br>
-                <br>
-                <strong>{{ $t('crons.examples') }}</strong><br>
-                • <code>*/5 * * * *</code> - {{ $t('crons.everyFiveMinutes') }}<br>
-                • <code>30 * * * * *</code> - {{ $t('crons.everyMinuteAt30s') }}<br>
-                • <code>0 0 * * *</code> - {{ $t('crons.dailyAtMidnight') }}
-              </div>
-            </v-alert>
+            <CronEditor v-model="editItem.cron" @valid="editCronValid = $event" />
           </v-form>
         </v-card-text>
         <v-divider></v-divider>
         <v-card-actions class="pa-2 pa-sm-4">
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="closeEditDialog">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="saveEditItem" :loading="editSaving" :disabled="!editItem.cron">
+          <v-btn color="primary" @click="saveEditItem" :loading="editSaving"
+            :disabled="!editItem.cron || !editCronValid">
             {{ $t('common.save') }}
           </v-btn>
         </v-card-actions>
@@ -230,6 +200,7 @@ import { ref, onMounted, onActivated, inject, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CronsService, FlowsService, InstancesService, type Cron, type Flow } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import CronEditor from '@/components/CronEditor.vue'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -250,6 +221,8 @@ const editSaving = ref(false)
 const toggleDialog = ref(false)
 const itemToToggle = ref<Cron | null>(null)
 const toggling = ref(false)
+const createCronValid = ref(false)
+const editCronValid = ref(false)
 
 const flowMap = ref<Record<string, string>>({})
 const availableFlows = ref<{ id: string; displayName: string }[]>([])
