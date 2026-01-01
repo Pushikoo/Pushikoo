@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/Pushikoo/Pushikoo/compare/v0.8.1...v0.9.0) (2026-01-01)
+
+
+### Features
+
+* **pip:** prefer uv over pip when available ([7177fd2](https://github.com/Pushikoo/Pushikoo/commit/7177fd231a9cf6b43c9051c59324401afec0290d))
+* **ui:** sort adapters by type priority and name ([9316f7b](https://github.com/Pushikoo/Pushikoo/commit/9316f7b7a217054994a9eed78c1514d76ee7b89e))
+
 ## [0.8.1](https://github.com/Pushikoo/Pushikoo/compare/v0.8.0...v0.8.1) (2025-12-28)
 
 
