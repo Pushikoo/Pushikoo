@@ -50,7 +50,7 @@ jobs:
         working-directory: frontend
 
       - name: Sync environment
-        run: uv sync
+        run: uv sync --extra build
         working-directory: backend
 
       - name: Build distributions

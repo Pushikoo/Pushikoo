@@ -32,7 +32,7 @@ def run(cmd, cwd, env=None):
 def get_version() -> str:
     """Get version using hatch version command."""
     result = subprocess.run(
-        ["hatch", "version"],
+        ["uv", "run", "--quiet", "hatch", "version"],
         cwd=BACKEND,
         capture_output=True,
         text=True,

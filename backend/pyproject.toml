@@ -36,7 +36,6 @@ dependencies = [
     "pushikoo-adapter-testpusher",
     "pushikoo-interface>=1.0.2",
     "sqlalchemy-utc>=0.14.0",
-    "hatch>=1.16.2",
 ]
 
 [project.urls]
@@ -47,6 +46,7 @@ pushikoo = "pushikoo.app:main"
 
 [project.optional-dependencies]
 dev = ["pip-audit>=2.10.0", "ruff", "pytest"]
+build = ["hatch>=1.16.2"]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/.github", "/.vscode", "/uv.lock", "/.gitignore"]
