@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/Pushikoo/Pushikoo/compare/v0.10.0...v0.10.1) (2026-01-01)
+
+
+### Build System
+
+* **backend:** add build extra dependency and update hatch usage ([cb376a4](https://github.com/Pushikoo/Pushikoo/commit/cb376a4d0b0cce5f38989032254122f1ef15d88d))
+
 ## [0.10.0](https://github.com/Pushikoo/Pushikoo/compare/v0.9.0...v0.10.0) (2026-01-01)
 
 
