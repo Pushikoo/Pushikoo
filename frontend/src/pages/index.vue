@@ -117,6 +117,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { useI18n } from 'vue-i18n'
+import { SystemService } from '@/client'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -130,13 +131,7 @@ const navigationItems = computed(() => [
 
 onMounted(async () => {
   auth.initializeFromStorage()
-
-  if (!auth.token) {
-    router.replace('/login')
-    return
-  }
-
-
+  SystemService.getSystemConfigApiV1SystemConfigGet()
 })
 
 </script>
