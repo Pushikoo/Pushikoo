@@ -41,7 +41,7 @@
     },
     "login": {
         "title": "Pushikooに続ける",
-        "accessToken": "アクセストークン",
+        "subtitle": "ログインを続けてください。",
         "signInToken": "トークンでサインイン",
         "signInSso": "SSOでサインイン",
         "or": "または",
