@@ -45,7 +45,11 @@ from pushikoo.service.config import ConfigService
 from pushikoo.service.image import ImageService
 from pushikoo.service.message import MessageService
 from pushikoo.service.warning import WarningService
-from pushikoo.service.base import InvalidInputException, NotFoundException
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 from pushikoo.util.setting import CRON_SCHEDULER_MAX_WORKERS
 
 getter_get_timeline_continuous_failed_times: dict[tuple[str, str], int] = {}
@@ -884,6 +888,18 @@ class CronService:
 
             flow_id = flow_db.id
 
+            # Check for duplicate (flow_id, cron)
+            existing = session.exec(
+                select(FlowCronDB).where(
+                    FlowCronDB.flow_id == flow_id,
+                    FlowCronDB.cron == cron_create.cron,
+                )
+            ).first()
+            if existing:
+                raise ConflictException(
+                    f"Cron with schedule '{cron_create.cron}' already exists for this flow"
+                )
+
             cron_db = FlowCronDB(
                 flow_id=flow_id,
                 cron=cron_create.cron,
@@ -917,6 +933,18 @@ class CronService:
 
             if cron_update.cron is not None:
                 cls._parse_cron_to_trigger(cron_update.cron)
+                # Check for duplicate (flow_id, cron) excluding current record
+                existing = session.exec(
+                    select(FlowCronDB).where(
+                        FlowCronDB.flow_id == cron_record.flow_id,
+                        FlowCronDB.cron == cron_update.cron,
+                        FlowCronDB.id != cron_id,
+                    )
+                ).first()
+                if existing:
+                    raise ConflictException(
+                        f"Cron with schedule '{cron_update.cron}' already exists for this flow"
+                    )
                 cron_record.cron = cron_update.cron
             if cron_update.enabled is not None:
                 cron_record.enabled = cron_update.enabled
