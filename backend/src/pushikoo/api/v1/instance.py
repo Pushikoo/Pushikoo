@@ -12,7 +12,7 @@ from pushikoo.model.adapter import (
 )
 from pushikoo.model.pagination import Page
 from pushikoo.service.adapter import AdapterInstanceService
-from pushikoo.service.base import NotFoundException
+from pushikoo.service.base import ConflictException, NotFoundException
 
 router = APIRouter(prefix="/instances", tags=["instances"])
 
@@ -39,6 +39,8 @@ def create_instance(instance_create: AdapterInstanceCreate) -> AdapterInstance:
     """Create a new adapter instance."""
     try:
         return AdapterInstanceService.create(instance_create)
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except NotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
