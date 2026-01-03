@@ -376,6 +376,7 @@ import { useI18n } from 'vue-i18n'
 import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceDetail, type FlowInstanceStatus } from '@/client'
 import draggable from 'vuedraggable'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -496,7 +497,7 @@ const loadFlows = async () => {
     flows.value = response.items || []
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to load flows', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to load flows'), 'error')
   } finally {
     loading.value = false
     initialLoading.value = false
@@ -568,7 +569,7 @@ const confirmExecuteFlow = async () => {
     executeDialog.value = false
   } catch (e) {
     console.error('Failed to execute flow', e)
-    showSnackbar(t('flows.executionFailed'), 'error')
+    showSnackbar(getApiErrorMessage(e, t('flows.executionFailed')), 'error')
   } finally {
     executingFlowId.value = null
   }
@@ -606,7 +607,7 @@ const saveFlow = async () => {
     await loadFlows()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to save flow', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to save flow'), 'error')
   } finally {
     saving.value = false
   }
@@ -627,7 +628,7 @@ const deleteFlow = async () => {
     await loadFlows()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to delete flow', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to delete flow'), 'error')
   } finally {
     deleting.value = false
   }
@@ -656,7 +657,7 @@ const loadFlowInstances = async () => {
     totalHistoryItems.value = response.total || 0
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to load execution history', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to load execution history'), 'error')
   } finally {
     loadingHistory.value = false
   }
@@ -679,7 +680,7 @@ const openInstanceDetail = async (instance: FlowInstance) => {
     selectedInstanceDetail.value = detail
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to load instance detail', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to load instance detail'), 'error')
     instanceDetailDialog.value = false
   } finally {
     loadingInstanceDetail.value = false

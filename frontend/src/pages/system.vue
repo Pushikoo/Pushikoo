@@ -69,6 +69,7 @@ import { useI18n } from 'vue-i18n'
 import { SystemService } from '@/client'
 import SchemaForm from '@/components/SchemaForm.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 
 const config = ref<any>({})
 const schema = ref<any>(null)
@@ -121,7 +122,7 @@ const saveConfig = async () => {
         showSnackbar(t('system.configurationSavedSuccessfully'), 'success')
     } catch (e) {
         console.error(e)
-        showSnackbar(t('system.failedToSaveConfiguration'), 'error')
+        showSnackbar(getApiErrorMessage(e, t('system.failedToSaveConfiguration')), 'error')
     } finally {
         saving.value = false
     }
