@@ -36,7 +36,11 @@ from pushikoo.service.config import ConfigService
 from pushikoo.util.setting import DATA_DIR
 from sqlmodel import func
 from pushikoo.model.pagination import Page, apply_page_limit
-from pushikoo.service.base import InvalidInputException, NotFoundException
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
 
@@ -218,11 +222,19 @@ class AdapterInstanceService:
 
     @staticmethod
     def get_object(adapter_name: str, identifier: str) -> InterfaceAdapter:
-        return next(
-            i
-            for i in AdapterInstanceService.instance_objects.values()
-            if i.adapter_name == adapter_name and i.identifier == identifier
+        result = next(
+            (
+                i
+                for i in AdapterInstanceService.instance_objects.values()
+                if i.adapter_name == adapter_name and i.identifier == identifier
+            ),
+            None,
         )
+        if result is None:
+            raise NotFoundException(
+                f"Adapter instance object {adapter_name}.{identifier} not found in cache"
+            )
+        return result
 
     @staticmethod
     def get_object_by_id(instance_id: UUID) -> InterfaceAdapter:
@@ -286,6 +298,18 @@ class AdapterInstanceService:
     @staticmethod
     def create(instance_create: AdapterInstanceCreate) -> AdapterInstance:
         with get_session() as session:
+            # Check for duplicate (adapter_name, identifier)
+            existing = session.exec(
+                select(AdapterInstanceDB).where(
+                    AdapterInstanceDB.adapter_name == instance_create.adapter_name,
+                    AdapterInstanceDB.identifier == instance_create.identifier,
+                )
+            ).first()
+            if existing:
+                raise ConflictException(
+                    f"Adapter instance {instance_create.adapter_name}.{instance_create.identifier} already exists"
+                )
+
             db_obj = AdapterInstanceDB(
                 adapter_name=instance_create.adapter_name,
                 identifier=instance_create.identifier,
@@ -294,10 +318,6 @@ class AdapterInstanceService:
             session.commit()
             session.refresh(db_obj)
 
-        # instance_object = AdapterService.create_instance(
-        #    db_obj.adapter_name, db_obj.identifier
-        # )
-        # AdapterInstanceService.instance_objects[db_obj.id] = instance_object
         logger.info(
             f"Created adapter instance: {instance_create.adapter_name}.{instance_create.identifier}"
         )
