@@ -15,6 +15,7 @@ from pushikoo.model.message import (
     MessageUpdate,
 )
 from pushikoo.model.pagination import Page, apply_page_limit
+from pushikoo.service.base import InvalidInputException, NotFoundException
 
 
 class MessageService:
@@ -178,7 +179,11 @@ class MessageService:
     @staticmethod
     def get(message_id: UUID) -> Message:
         with get_session() as session:
-            m = session.exec(select(MessageDB).where(MessageDB.id == message_id)).one()
+            m = session.exec(
+                select(MessageDB).where(MessageDB.id == message_id)
+            ).first()
+            if not m:
+                raise NotFoundException(f"Message {message_id} not found")
         return Message(
             id=m.id,
             message_identifier=m.message_identifier,
@@ -195,7 +200,7 @@ class MessageService:
             ).first()
 
             if not message_record:
-                raise ValueError("Not found")
+                raise NotFoundException("Message not found")
 
             session.delete(message_record)
             session.commit()
@@ -220,7 +225,9 @@ class MessageService:
         with get_session() as session:
             obj = session.exec(
                 select(MessageDB).where(MessageDB.id == message_id)
-            ).one()
+            ).first()
+            if not obj:
+                raise NotFoundException(f"Message {message_id} not found")
             for k, v in update_data.items():
                 setattr(obj, k, v)
             if update_data:
@@ -273,7 +280,9 @@ class MessageService:
                 text = content.rstrip("\n") + "\n"
                 result.append(StructText(text=text))
             else:
-                raise TypeError(f"Unsupported content type: {type(content)}")
+                raise InvalidInputException(
+                    f"Unsupported content type: {type(content)}"
+                )
 
             # ---------- Images ----------
             for img in detail.image:
@@ -284,7 +293,7 @@ class MessageService:
                 elif isinstance(img, dict):
                     result.append(StructImage(**img))
                 else:
-                    raise TypeError(f"Unsupported image type: {type(img)}")
+                    raise InvalidInputException(f"Unsupported image type: {type(img)}")
 
             # ---------- Meta line ----------
             meta_parts: list[str] = []

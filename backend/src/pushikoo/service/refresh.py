@@ -45,6 +45,11 @@ from pushikoo.service.config import ConfigService
 from pushikoo.service.image import ImageService
 from pushikoo.service.message import MessageService
 from pushikoo.service.warning import WarningService
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 from pushikoo.util.setting import CRON_SCHEDULER_MAX_WORKERS
 
 getter_get_timeline_continuous_failed_times: dict[tuple[str, str], int] = {}
@@ -63,7 +68,7 @@ class FlowService:
     def create(flow_create: FlowCreate) -> Flow:
         with get_session() as session:
             if not flow_create.nodes:
-                raise ValueError("Flow must have at least one node")
+                raise InvalidInputException("Flow must have at least one node")
 
             # Validate all nodes exist
             for adapter_instance_id in flow_create.nodes:
@@ -73,7 +78,7 @@ class FlowService:
                     )
                 ).first()
                 if not adapter_db:
-                    raise ValueError(
+                    raise InvalidInputException(
                         f"Flow node adapter instance not found: {adapter_instance_id}"
                     )
 
@@ -129,7 +134,7 @@ class FlowService:
             flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
 
             if not flow_db:
-                raise KeyError("Not found")
+                raise NotFoundException("Flow not found")
 
             return FlowService._to_model(session, flow_db)
 
@@ -138,14 +143,14 @@ class FlowService:
         with get_session() as session:
             flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
             if not flow_db:
-                raise ValueError("Not found")
+                raise NotFoundException("Flow not found")
 
             if flow_update.name is not None:
                 flow_db.name = flow_update.name
 
             if flow_update.nodes is not None:
                 if not flow_update.nodes:
-                    raise ValueError("Flow must have at least one node")
+                    raise InvalidInputException("Flow must have at least one node")
 
                 # Validate all nodes exist
                 for adapter_instance_id in flow_update.nodes:
@@ -155,7 +160,7 @@ class FlowService:
                         )
                     ).first()
                     if not adapter_db:
-                        raise ValueError(
+                        raise InvalidInputException(
                             f"Flow node adapter instance not found: {adapter_instance_id}"
                         )
 
@@ -170,7 +175,7 @@ class FlowService:
         with get_session() as session:
             flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
             if not flow_db:
-                raise ValueError("Not found")
+                raise NotFoundException("Flow not found")
 
             # remove related crons for this flow
             flow_crons = session.exec(
@@ -220,7 +225,7 @@ class FlowInstanceService:
             ).first()
 
             if not instance_db:
-                raise KeyError("Not found")
+                raise NotFoundException("Flow instance not found")
 
             instance_db.status = status.value
             session.add(instance_db)
@@ -237,7 +242,7 @@ class FlowInstanceService:
             ).first()
 
             if not instance_db:
-                raise KeyError("Not found")
+                raise NotFoundException("Flow instance not found")
 
             return FlowInstanceService._to_model(instance_db)
 
@@ -382,9 +387,9 @@ class FlowInstanceRunner:
         with get_session() as session:
             flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
             if not flow_db:
-                raise ValueError(f"Flow not found: {flow_id}")
+                raise NotFoundException(f"Flow not found: {flow_id}")
             if not flow_db.nodes:
-                raise ValueError(f"Flow has no nodes: {flow_id}")
+                raise InvalidInputException(f"Flow has no nodes: {flow_id}")
 
             # Filter to only included nodes (None = include all)
             all_nodes = list(flow_db.nodes or [])
@@ -768,41 +773,44 @@ class CronService:
         expr = expr.strip()
         parts = expr.split()
 
-        if len(parts) == 5:
-            minute, hour, day, month, day_of_week = parts
-            return CronTrigger(
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=day_of_week,
-            )
+        try:
+            if len(parts) == 5:
+                minute, hour, day, month, day_of_week = parts
+                return CronTrigger(
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=day_of_week,
+                )
 
-        elif len(parts) == 6:
-            second, minute, hour, day, month, day_of_week = parts
-            return CronTrigger(
-                second=second,
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=day_of_week,
-            )
+            elif len(parts) == 6:
+                second, minute, hour, day, month, day_of_week = parts
+                return CronTrigger(
+                    second=second,
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=day_of_week,
+                )
 
-        elif len(parts) == 7:
-            second, minute, hour, day, month, day_of_week, year = parts
-            return CronTrigger(
-                second=second,
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=day_of_week,
-                year=year,
-            )
+            elif len(parts) == 7:
+                second, minute, hour, day, month, day_of_week, year = parts
+                return CronTrigger(
+                    second=second,
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=day_of_week,
+                    year=year,
+                )
 
-        else:
-            raise ValueError(f"Invalid cron expression: '{expr}'")
+            else:
+                raise InvalidInputException(f"Invalid cron expression: '{expr}'")
+        except ValueError as e:
+            raise InvalidInputException(f"Invalid cron expression: '{expr}' - {e}")
 
     @staticmethod
     def _job_id(flow_id: UUID, cron_expr: str) -> str:
@@ -876,9 +884,21 @@ class CronService:
                 select(FlowDB).where(FlowDB.id == cron_create.flow_id)
             ).first()
             if not flow_db:
-                raise KeyError("Flow not found")
+                raise NotFoundException("Flow not found")
 
             flow_id = flow_db.id
+
+            # Check for duplicate (flow_id, cron)
+            existing = session.exec(
+                select(FlowCronDB).where(
+                    FlowCronDB.flow_id == flow_id,
+                    FlowCronDB.cron == cron_create.cron,
+                )
+            ).first()
+            if existing:
+                raise ConflictException(
+                    f"Cron with schedule '{cron_create.cron}' already exists for this flow"
+                )
 
             cron_db = FlowCronDB(
                 flow_id=flow_id,
@@ -909,10 +929,22 @@ class CronService:
             ).first()
 
             if not cron_record:
-                raise KeyError("Cron not found")
+                raise NotFoundException("Cron not found")
 
             if cron_update.cron is not None:
                 cls._parse_cron_to_trigger(cron_update.cron)
+                # Check for duplicate (flow_id, cron) excluding current record
+                existing = session.exec(
+                    select(FlowCronDB).where(
+                        FlowCronDB.flow_id == cron_record.flow_id,
+                        FlowCronDB.cron == cron_update.cron,
+                        FlowCronDB.id != cron_id,
+                    )
+                ).first()
+                if existing:
+                    raise ConflictException(
+                        f"Cron with schedule '{cron_update.cron}' already exists for this flow"
+                    )
                 cron_record.cron = cron_update.cron
             if cron_update.enabled is not None:
                 cron_record.enabled = cron_update.enabled
@@ -981,7 +1013,7 @@ class CronService:
             ).first()
 
             if not cron_record:
-                raise ValueError("Not found")
+                raise NotFoundException("Cron not found")
 
             session.delete(cron_record)
             session.commit()

@@ -22,6 +22,7 @@ from pushikoo.util.setting import (
     IMAGE_LINK_DEFAULT_EXPIRE_SECOND,
     settings,
 )
+from pushikoo.service.base import InvalidInputException
 
 # Format to MIME suffix mapping
 FORMAT_TO_SUFFIX = {
@@ -131,7 +132,7 @@ class ImageService:
             return Path(uri)
 
         else:
-            raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
+            raise InvalidInputException(f"Unsupported URI scheme: {parsed.scheme}")
 
     @staticmethod
     def _calculate_hash(file_path: Path) -> str:
@@ -149,7 +150,7 @@ class ImageService:
             fmt = img.format
             if fmt and fmt.upper() in FORMAT_TO_SUFFIX:
                 return FORMAT_TO_SUFFIX[fmt.upper()]
-            raise ValueError(f"Unsupported image format: {fmt}")
+            raise InvalidInputException(f"Unsupported image format: {fmt}")
 
     @staticmethod
     def get_file_by_id(file_id: uuid.UUID) -> FileDB | None:
