@@ -201,6 +201,7 @@ import { useI18n } from 'vue-i18n'
 import { CronsService, FlowsService, InstancesService, type Cron, type Flow } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import CronEditor from '@/components/CronEditor.vue'
+import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -286,7 +287,7 @@ const loadData = async () => {
     crons.value = response.items || []
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to load crons', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to load crons'), 'error')
   } finally {
     loading.value = false
     initialLoading.value = false
@@ -323,7 +324,7 @@ const saveItem = async () => {
     await loadData()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to create cron', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to create cron'), 'error')
   } finally {
     saving.value = false
   }
@@ -344,7 +345,7 @@ const deleteItem = async () => {
     await loadData()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to delete cron', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to delete cron'), 'error')
   } finally {
     deleting.value = false
   }
@@ -370,7 +371,7 @@ const executeToggleEnabled = async () => {
     itemToToggle.value = null
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to update cron', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to update cron'), 'error')
   } finally {
     toggling.value = false
   }
@@ -398,7 +399,7 @@ const saveEditItem = async () => {
     await loadData()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to update cron', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to update cron'), 'error')
   } finally {
     editSaving.value = false
   }

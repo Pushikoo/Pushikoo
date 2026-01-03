@@ -211,6 +211,7 @@ import { MessagesService, type Message } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { structAsMarkdown, structAsPlainText, type Struct } from '@/utils/structRenderer'
 import { marked } from 'marked'
+import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -297,7 +298,7 @@ const loadItems = async ({ page, itemsPerPage, sortBy }: any) => {
     totalItems.value = response.total
   } catch (error) {
     console.error('Error loading messages:', error)
-    showSnackbar('Failed to load messages', 'error')
+    showSnackbar(getApiErrorMessage(error, 'Failed to load messages'), 'error')
   } finally {
     loading.value = false
     initialLoading.value = false
@@ -586,7 +587,7 @@ const confirmDelete = async () => {
     refreshData()
   } catch (e) {
     console.error(e)
-    showSnackbar('Failed to delete message', 'error')
+    showSnackbar(getApiErrorMessage(e, 'Failed to delete message'), 'error')
   } finally {
     deleting.value = false
   }

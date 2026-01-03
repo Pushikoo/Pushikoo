@@ -197,6 +197,7 @@ import { useI18n } from 'vue-i18n'
 import { AdaptersService, InstancesService, type AdapterMeta, type AdapterInstance, type AdapterType } from '@/client'
 import SchemaForm from '@/components/SchemaForm.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -278,7 +279,7 @@ const loadAllInstances = async () => {
         instances.value = response.items || []
     } catch (e) {
         console.error(e)
-        showSnackbar('Failed to load instances', 'error')
+        showSnackbar(getApiErrorMessage(e, 'Failed to load instances'), 'error')
     } finally {
         loadingInstances.value = false
         initialLoading.value = false
@@ -370,7 +371,7 @@ const saveInstance = async () => {
         await loadAllInstances()
     } catch (e) {
         console.error(e)
-        showSnackbar('Failed to save instance', 'error')
+        showSnackbar(getApiErrorMessage(e, 'Failed to save instance'), 'error')
     } finally {
         saving.value = false
     }
@@ -393,7 +394,7 @@ const confirmDelete = async () => {
         await loadAllInstances()
     } catch (e) {
         console.error(e)
-        showSnackbar('Failed to delete instance', 'error')
+        showSnackbar(getApiErrorMessage(e, 'Failed to delete instance'), 'error')
     } finally {
         deleting.value = false
     }
