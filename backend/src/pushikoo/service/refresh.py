@@ -869,12 +869,14 @@ class CronService:
 
     @classmethod
     def create(cls, cron_create: CronCreate) -> Cron:
+        cls._parse_cron_to_trigger(cron_create.cron)
+
         with get_session() as session:
             flow_db = session.exec(
                 select(FlowDB).where(FlowDB.id == cron_create.flow_id)
             ).first()
             if not flow_db:
-                raise ValueError("Flow not found")
+                raise KeyError("Flow not found")
 
             flow_id = flow_db.id
 
@@ -907,9 +909,10 @@ class CronService:
             ).first()
 
             if not cron_record:
-                raise ValueError("Not found")
+                raise KeyError("Cron not found")
 
             if cron_update.cron is not None:
+                cls._parse_cron_to_trigger(cron_update.cron)
                 cron_record.cron = cron_update.cron
             if cron_update.enabled is not None:
                 cron_record.enabled = cron_update.enabled
