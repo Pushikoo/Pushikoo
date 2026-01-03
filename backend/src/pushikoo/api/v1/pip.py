@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile,
 
 from pushikoo.model.pip import PipCommandResult
 from pushikoo.service.pip import PIPService
+from pushikoo.service.base import ConflictException
 from pushikoo.util.setting import CACHE_DIR as BASE_CACHE_DIR
 
 CACHE_DIR = BASE_CACHE_DIR / "api" / "pip"
@@ -117,8 +118,8 @@ def get_index(url: str) -> str:
 def add_index(url: str) -> str:
     try:
         return PIPService.add_index(url)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflict")
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.delete("/indexes/{url:path}", status_code=status.HTTP_204_NO_CONTENT)

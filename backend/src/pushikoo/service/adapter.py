@@ -36,6 +36,7 @@ from pushikoo.service.config import ConfigService
 from pushikoo.util.setting import DATA_DIR
 from sqlmodel import func
 from pushikoo.model.pagination import Page, apply_page_limit
+from pushikoo.service.base import InvalidInputException, NotFoundException
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
 
@@ -134,7 +135,7 @@ class AdapterService:
             elif issubclass(cls, Processer):
                 adapter_type = AdapterType.PROCESSER
             else:
-                raise TypeError(
+                raise InvalidInputException(
                     f"Adapter {cls.__name__} must be subclass of Getter, Pusher or Processer"
                 )
 
@@ -156,7 +157,7 @@ class AdapterService:
             if stored_adapter_name == adapter_name
         ]
         if not adapter_matched:
-            raise KeyError(f"Adapter class {adapter_name} not found")
+            raise NotFoundException(f"Adapter class {adapter_name} not found")
 
         _adapter_name, AdapterClass = adapter_matched[0]
         return AdapterClass
@@ -229,7 +230,7 @@ class AdapterInstanceService:
             row = session.get(AdapterInstanceDB, instance_id)
 
         if not row:
-            raise KeyError(f"Adapter instance {instance_id} not found")
+            raise NotFoundException(f"Adapter instance {instance_id} not found")
 
         adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
         current_version = adapter_class.meta.version
@@ -274,7 +275,7 @@ class AdapterInstanceService:
             row = session.get(AdapterInstanceDB, instance_id)
 
         if not row:
-            raise KeyError(f"Adapter instance {instance_id} not found")
+            raise NotFoundException(f"Adapter instance {instance_id} not found")
 
         return AdapterInstance(
             id=row.id,
@@ -351,7 +352,7 @@ class AdapterInstanceService:
             ).first()
 
             if not instance_record:
-                raise ValueError("Not found")
+                raise NotFoundException("Adapter instance not found")
 
             instance_id = instance_record.id
             session.delete(instance_record)

@@ -6,6 +6,11 @@ from pushikoo.model.adapter import AdapterInstance
 from pushikoo.model.pagination import Page
 from pushikoo.model.warning import WarningRecipientCreate
 from pushikoo.service.warning import WarningService
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 
 router = APIRouter(prefix="/warnings", tags=["warnings"])
@@ -15,16 +20,12 @@ router = APIRouter(prefix="/warnings", tags=["warnings"])
 def add_recipient(payload: WarningRecipientCreate) -> AdapterInstance:
     try:
         return WarningService.add_recipient(payload.adapter_instance_id)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter instance not found"
-        )
-    except ValueError as e:
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except InvalidInputException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except FileExistsError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Recipient already exists"
-        )
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.get("/recipients")
@@ -43,7 +44,5 @@ def delete_recipient(adapter_instance_id: UUID) -> Response:
     try:
         WarningService.remove_recipient(adapter_instance_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except (KeyError, LookupError):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Recipient not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

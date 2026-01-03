@@ -21,6 +21,7 @@ from pushikoo.service.refresh import (
     FlowNodeExecutionService,
     FlowService,
 )
+from pushikoo.service.base import NotFoundException
 
 
 router = APIRouter(prefix="/flows", tags=["flows"])
@@ -67,10 +68,10 @@ def list_flow_instances(
 def get_flow_instance(instance_id: UUID) -> FlowInstance:
     try:
         return FlowInstanceService.get(instance_id)
-    except KeyError:
+    except NotFoundException as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Flow instance not found",
+            detail=str(e),
         )
 
 
@@ -79,10 +80,10 @@ def get_flow_instance_detail(instance_id: UUID) -> FlowInstanceDetail:
     """Get detailed execution information for a flow instance."""
     try:
         instance = FlowInstanceService.get(instance_id)
-    except KeyError:
+    except NotFoundException as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Flow instance not found",
+            detail=str(e),
         )
 
     node_executions = FlowNodeExecutionService.list_by_instance(instance_id)
@@ -100,20 +101,16 @@ def get_flow_instance_detail(instance_id: UUID) -> FlowInstanceDetail:
 def get_flow(flow_id: UUID) -> Flow:
     try:
         return FlowService.get(flow_id)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.put("/{flow_id}")
 def update_flow(flow_id: UUID, payload: FlowUpdate) -> Flow:
     try:
         return FlowService.update(flow_id, payload)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -121,10 +118,8 @@ def delete_flow(flow_id: UUID) -> Response:
     try:
         FlowService.delete(flow_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/{flow_id}/execute", status_code=status.HTTP_204_NO_CONTENT)
@@ -132,10 +127,8 @@ def execute_flow(flow_id: UUID, payload: FlowExecuteRequest | None = None) -> Re
     """Manually trigger a flow execution with optional node exclusions."""
     try:
         FlowService.get(flow_id)  # Validate flow exists
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     include_nodes = payload.include_nodes if payload else None
     runner = FlowInstanceRunner(flow_id, include_nodes=include_nodes)

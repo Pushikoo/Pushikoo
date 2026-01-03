@@ -10,6 +10,11 @@ from pushikoo.db import get_session
 from pushikoo.model.adapter import AdapterInstance
 from pushikoo.model.pagination import Page, apply_page_limit
 from pushikoo.service.adapter import AdapterInstanceService, AdapterService
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 
 class WarningService:
@@ -23,14 +28,16 @@ class WarningService:
             ).first()
 
             if not adapter_instance:
-                raise KeyError(f"Adapter instance {adapter_instance_id} not found")
+                raise NotFoundException(
+                    f"Adapter instance {adapter_instance_id} not found"
+                )
 
             # Check if the adapter is a Pusher
             adapter_class = AdapterService.get_clsobj_by_name(
                 adapter_instance.adapter_name
             )
             if not issubclass(adapter_class, Pusher):
-                raise ValueError(
+                raise InvalidInputException(
                     f"Adapter {adapter_instance.adapter_name} is not a Pusher. "
                     "Only Pusher adapters can be warning recipients."
                 )
@@ -42,7 +49,7 @@ class WarningService:
             ).first()
 
             if existing:
-                raise FileExistsError(
+                raise ConflictException(
                     f"Adapter instance {adapter_instance_id} already exists as warning recipient"
                 )
 
@@ -69,7 +76,9 @@ class WarningService:
             ).first()
 
             if not adapter_instance:
-                raise KeyError(f"Adapter instance {adapter_instance_id} not found")
+                raise NotFoundException(
+                    f"Adapter instance {adapter_instance_id} not found"
+                )
 
             recipient = session.exec(
                 select(WarningRecipientDB).where(
@@ -78,7 +87,7 @@ class WarningService:
             ).first()
 
             if not recipient:
-                raise LookupError(
+                raise NotFoundException(
                     f"Warning recipient for adapter instance {adapter_instance_id} not found"
                 )
 
