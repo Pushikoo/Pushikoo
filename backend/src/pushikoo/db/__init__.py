@@ -1,8 +1,10 @@
 import datetime
+import threading
 import uuid
 from typing import Optional
 
 from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy.engine import Engine
 from sqlalchemy_utc import UtcDateTime
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
@@ -11,13 +13,25 @@ from pushikoo.util.setting import DATA_DIR
 
 
 DB_PATH = DATA_DIR / "pushikoo.db"
-engine = create_engine(
-    f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False}
-)
+_engine: Optional[Engine] = None
+_engine_lock = threading.Lock()
+
+
+def get_engine() -> Engine:
+    """Get or create the database engine (lazy initialization, thread-safe)."""
+    global _engine
+    if _engine is None:
+        with _engine_lock:
+            _engine = create_engine(
+                f"sqlite:///{DB_PATH}",
+                echo=False,
+                connect_args={"check_same_thread": False},
+            )
+    return _engine
 
 
 def get_session() -> Session:
-    return Session(engine)
+    return Session(get_engine())
 
 
 class AdapterInstance(SQLModel, table=True):
@@ -131,15 +145,10 @@ class File(SQLModel, table=True):
     expire_at: datetime.datetime = Field(sa_column=Column(UtcDateTime()))
 
 
-def init_db() -> None:
-    SQLModel.metadata.create_all(engine)
-
-
 __all__ = [
     # base
-    "engine",
+    "get_engine",
     "get_session",
-    "init_db",
     # adapter
     "AdapterInstance",
     "Flow",

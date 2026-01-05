@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import sys
 from pathlib import Path
+from typing import Optional
 
 from alembic import context
 from sqlmodel import SQLModel
 
+from pushikoo.db import get_engine
 
 # Ensure package importability in dev (when running from repo root)
 try:
@@ -32,9 +32,7 @@ def run_migrations_offline() -> None:
     url: Optional[str] = config.get_main_option("sqlalchemy.url")
     if not url:
         try:
-            from pushikoo.db import engine as app_engine
-
-            url = str(app_engine.url)
+            url = str(get_engine().url)
         except Exception:  # pragma: no cover - best-effort fallback
             url = None
 
@@ -62,9 +60,7 @@ def run_migrations_online() -> None:
     close_conn = False
 
     if connection is None:
-        from pushikoo.db import engine as app_engine
-
-        connection = app_engine.connect()
+        connection = get_engine().connect()
         close_conn = True
 
     try:

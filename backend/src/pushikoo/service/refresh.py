@@ -1,7 +1,7 @@
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -761,12 +761,24 @@ class FlowInstanceRunner:
 
 
 class CronService:
-    _scheduler = BackgroundScheduler(
-        executors={
-            "default": {"type": "threadpool", "max_workers": CRON_SCHEDULER_MAX_WORKERS}
-        }
-    )
+    _scheduler: Optional[BackgroundScheduler] = None
     _lock = threading.Lock()
+
+    @classmethod
+    def _get_scheduler(cls) -> BackgroundScheduler:
+        """Get or create the background scheduler (lazy initialization, thread-safe)."""
+        if cls._scheduler is None:
+            with cls._lock:
+                if cls._scheduler is None:
+                    cls._scheduler = BackgroundScheduler(
+                        executors={
+                            "default": {
+                                "type": "threadpool",
+                                "max_workers": CRON_SCHEDULER_MAX_WORKERS,
+                            }
+                        }
+                    )
+        return cls._scheduler
 
     @staticmethod
     def _parse_cron_to_trigger(expr: str) -> CronTrigger:
@@ -839,10 +851,10 @@ class CronService:
             ]
             db_ids = {
                 cls._job_id(flow_id, cron_expr)
-                for cron_id, flow_id, cron_expr in enabled_crons
+                for _, flow_id, cron_expr in enabled_crons
             }
 
-            job_ids = {job.id for job in cls._scheduler.get_jobs()}
+            job_ids = {job.id for job in cls._get_scheduler().get_jobs()}
 
             to_add = db_ids - job_ids
             to_remove = job_ids - db_ids
@@ -853,8 +865,8 @@ class CronService:
             }
 
             for job_id in to_add:
-                cron_id, flow_id, cron = cron_map[job_id]
-                cls._scheduler.add_job(
+                _, flow_id, cron = cron_map[job_id]
+                cls._get_scheduler().add_job(
                     func=lambda flow_id=flow_id: FlowInstanceRunner(flow_id).do(),
                     trigger=CronService._parse_cron_to_trigger(cron),
                     id=job_id,
@@ -864,7 +876,7 @@ class CronService:
 
             for job_id in to_remove:
                 try:
-                    cls._scheduler.remove_job(job_id)
+                    cls._get_scheduler().remove_job(job_id)
                     logger.info(f"Removed {job_id}")
                 except Exception:
                     logger.warning(f"Job {job_id} does not exist")
@@ -872,8 +884,9 @@ class CronService:
     @classmethod
     def init(cls):
         cls._reload()
-        if not cls._scheduler.running:
-            cls._scheduler.start()
+        scheduler = cls._get_scheduler()
+        if not scheduler.running:
+            scheduler.start()
 
     @classmethod
     def create(cls, cron_create: CronCreate) -> Cron:
@@ -1026,6 +1039,6 @@ class CronService:
     @classmethod
     def close(cls):
         with cls._lock:
-            if cls._scheduler.running:
+            if cls._scheduler is not None and cls._scheduler.running:
                 cls._scheduler.shutdown(wait=False)
                 logger.info("CronService scheduler shutdown complete")

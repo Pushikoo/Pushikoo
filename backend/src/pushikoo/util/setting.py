@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -11,9 +12,13 @@ FILE_DIR = DATA_DIR / "files"
 
 IMAGE_LINK_DEFAULT_EXPIRE_SECOND = 100 * 365 * 24 * 3600
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
-FILE_DIR.mkdir(parents=True, exist_ok=True)
+
+@lru_cache(maxsize=1)
+def ensure_directories() -> None:
+    """Ensure all required directories exist. Called once during app startup."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    FILE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _parse_cors(v: Any) -> list[str] | str:

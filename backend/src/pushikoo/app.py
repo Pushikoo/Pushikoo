@@ -11,10 +11,10 @@ from loguru import logger
 from sqlalchemy.engine import Engine
 
 from pushikoo.api import app
-from pushikoo.db import engine as app_engine
+from pushikoo.db import get_engine
 from pushikoo.service.adapter import AdapterService
 from pushikoo.service.refresh import CronService
-from pushikoo.util.setting import settings
+from pushikoo.util.setting import ensure_directories, settings
 
 
 def _get_version() -> str | None:
@@ -58,7 +58,7 @@ def _activate_venv() -> None:
 
 
 def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
-    eng = engine or app_engine
+    eng = engine or get_engine()
     cfg = Config()
     scripts = files("pushikoo") / "alembic"
     with as_file(scripts) as script_path:
@@ -88,6 +88,8 @@ def _init_log():
 def main() -> None:
     _activate_venv()
     _init_log()
+
+    ensure_directories()
 
     if version := _get_version():
         logger.info(f"Pushikoo v{version} started")
