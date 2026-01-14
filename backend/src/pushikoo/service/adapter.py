@@ -149,6 +149,7 @@ class AdapterService:
     @staticmethod
     def get_clsobj_by_name(adapter_name) -> type[Adapter]:
         """Get adapter class by name."""
+        AdapterService.ensure_load_adapter()
         adapter_matched = [
             (stored_adapter_name, stored_adapter_class)
             for stored_adapter_name, stored_adapter_class in AdapterService.adapters.items()
