@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/Pushikoo/Pushikoo/compare/v0.10.1...v0.10.2) (2026-01-15)
+
+
+### Bug Fixes
+
+* **adapter:** ensure adapters are loaded before lookup ([d057097](https://github.com/Pushikoo/Pushikoo/commit/d0570977ceda875d7176e9dad07b42a1cd7ae3aa))
+
 ## [0.10.1](https://github.com/Pushikoo/Pushikoo/compare/v0.10.0...v0.10.1) (2026-01-01)
 
 
