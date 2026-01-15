@@ -15,7 +15,12 @@ apirouter = APIRouter(prefix="/api")
 apirouter.include_router(v1_oauth_router)
 apirouter.include_router(v1_router)
 
-app = FastAPI()
+_fastapi_kwargs: dict = {}
+if settings.ENVIRONMENT == "production":
+    _fastapi_kwargs["docs_url"] = None
+    _fastapi_kwargs["redoc_url"] = None
+
+app = FastAPI(**_fastapi_kwargs)
 app.include_router(apirouter)
 app.include_router(file_router)
 app.include_router(sparouter)
