@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 
 from pushikoo.api import app
 from pushikoo.db import engine as app_engine
+from pushikoo.service.adapter import AdapterService
 from pushikoo.service.refresh import CronService
 from pushikoo.util.setting import settings
 
@@ -67,22 +68,31 @@ def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
             command.upgrade(cfg, "head")
 
 
-def main() -> None:
-    _activate_venv()
-
-    # Display version if available
-    version = _get_version()
-    if version:
-        logger.info(f"Pushikoo v{version} started")
-    else:
-        logger.info("Pushikoo started")
-
+def _init_log():
     if settings.ENVIRONMENT != "local":
         logger.remove()
         logger.add(
             sys.stdout,
             level="INFO",
         )
+    logger.add(
+        "data/log/app.log",
+        rotation="100 MB",
+        retention="14 days",
+        compression="zip",
+        enqueue=True,
+        encoding="utf-8",
+    )
+
+
+def main() -> None:
+    _activate_venv()
+    _init_log()
+
+    if version := _get_version():
+        logger.info(f"Pushikoo v{version} started")
+    else:
+        logger.info("Pushikoo started")
 
     if settings.ENVIRONMENT == "local" and not Path("pyproject.toml").exists():
         logger.warning(
@@ -95,17 +105,9 @@ def main() -> None:
         )
         exit(1)
 
-    logger.add(
-        "data/log/app.log",
-        rotation="100 MB",
-        retention="14 days",
-        compression="zip",
-        enqueue=True,
-        encoding="utf-8",
-    )
-
     db_upgrade_to_head()
     # Thread(target=AdapterInstanceService.init).start()
+    AdapterService.ensure_load_adapter()
     CronService.init()
 
     uvicorn.run(app, host=settings.API_HOST, port=settings.API_PORT)
