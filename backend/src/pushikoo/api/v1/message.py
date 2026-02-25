@@ -11,6 +11,7 @@ from pushikoo.model.message import (
 )
 from pushikoo.model.pagination import Page
 from pushikoo.service.message import MessageService
+from pushikoo.service.base import NotFoundException
 
 
 router = APIRouter(prefix="/messages", tags=["messages"])
@@ -51,10 +52,8 @@ def list_messages(
 def get_message(message_id: UUID) -> Message:
     try:
         return MessageService.get(message_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -62,10 +61,8 @@ def delete_message(message_id: UUID) -> Response:
     try:
         MessageService.delete(message_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.patch("/{message_id}")

@@ -5,6 +5,11 @@ from fastapi import APIRouter, HTTPException, Response, status
 from pushikoo.model.cron import Cron, CronCreate, CronListFilter, CronUpdate
 from pushikoo.model.pagination import Page
 from pushikoo.service.refresh import CronService
+from pushikoo.service.base import (
+    ConflictException,
+    NotFoundException,
+    InvalidInputException,
+)
 
 
 router = APIRouter(prefix="/crons", tags=["crons"])
@@ -12,7 +17,16 @@ router = APIRouter(prefix="/crons", tags=["crons"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_cron(payload: CronCreate) -> Cron:
-    return CronService.create(payload)
+    try:
+        return CronService.create(payload)
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except InvalidInputException as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
+        )
 
 
 @router.get("")
@@ -37,9 +51,13 @@ def list_crons(
 def update_cron(cron_id: UUID, payload: CronUpdate) -> Cron:
     try:
         return CronService.update(cron_id, payload)
-    except ValueError:
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except InvalidInputException as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Cron not found"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
         )
 
 
@@ -51,7 +69,5 @@ def delete_cron(cron_id: UUID) -> Response:
     try:
         CronService.delete(cron_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Cron not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

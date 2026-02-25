@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.11.0](https://github.com/Pushikoo/Pushikoo/compare/v0.10.2...v0.11.0) (2026-02-25)
+
+
+### Features
+
+* **login:** redesign login page with split layout, i18n cleanup, and responsive styling ([6daf622](https://github.com/Pushikoo/Pushikoo/commit/6daf622bdfab22030af259c14fb9fc80bb5407a4))
+* **refresh:** add cron validation and improve error handling ([98562ac](https://github.com/Pushikoo/Pushikoo/commit/98562acaaff96feacea5169d8c89b37ea28b588a))
+
+
+### Bug Fixes
+
+* **backend:** add duplicate check and proper error handling in AdapterInstanceService ([1d0b277](https://github.com/Pushikoo/Pushikoo/commit/1d0b277e498a1bb9a1591c05c513d87299745d0e))
+* **backend:** add duplicate cron validation with conflict check before create/update ([9046828](https://github.com/Pushikoo/Pushikoo/commit/9046828b1a33522df12ec3d9204ce9729a1f1eb9))
+* **index:** index page do not redirect to login page when token is invalid ([e27cfe0](https://github.com/Pushikoo/Pushikoo/commit/e27cfe040f1fe523c61089577b6f024d02a7635a))
+
+
+### Miscellaneous Chores
+
+* trigger ci ([b9f506f](https://github.com/Pushikoo/Pushikoo/commit/b9f506f083abf8d590637c6bc073ab9359433e36))
+
+
+### Continuous Integration
+
+* **workflows:** add version output and update build environment variable ([6454381](https://github.com/Pushikoo/Pushikoo/commit/6454381b4f7623d97d4d584a8e8a5011cfb6598e))
+
 ## [0.10.2](https://github.com/Pushikoo/Pushikoo/compare/v0.10.1...v0.10.2) (2026-01-15)
 
 

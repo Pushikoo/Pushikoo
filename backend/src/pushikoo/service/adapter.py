@@ -36,6 +36,11 @@ from pushikoo.service.config import ConfigService
 from pushikoo.util.setting import DATA_DIR
 from sqlmodel import func
 from pushikoo.model.pagination import Page, apply_page_limit
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
 
@@ -134,7 +139,7 @@ class AdapterService:
             elif issubclass(cls, Processer):
                 adapter_type = AdapterType.PROCESSER
             else:
-                raise TypeError(
+                raise InvalidInputException(
                     f"Adapter {cls.__name__} must be subclass of Getter, Pusher or Processer"
                 )
 
@@ -156,7 +161,7 @@ class AdapterService:
             if stored_adapter_name == adapter_name
         ]
         if not adapter_matched:
-            raise KeyError(f"Adapter class {adapter_name} not found")
+            raise NotFoundException(f"Adapter class {adapter_name} not found")
 
         _adapter_name, AdapterClass = adapter_matched[0]
         return AdapterClass
@@ -217,11 +222,19 @@ class AdapterInstanceService:
 
     @staticmethod
     def get_object(adapter_name: str, identifier: str) -> InterfaceAdapter:
-        return next(
-            i
-            for i in AdapterInstanceService.instance_objects.values()
-            if i.adapter_name == adapter_name and i.identifier == identifier
+        result = next(
+            (
+                i
+                for i in AdapterInstanceService.instance_objects.values()
+                if i.adapter_name == adapter_name and i.identifier == identifier
+            ),
+            None,
         )
+        if result is None:
+            raise NotFoundException(
+                f"Adapter instance object {adapter_name}.{identifier} not found in cache"
+            )
+        return result
 
     @staticmethod
     def get_object_by_id(instance_id: UUID) -> InterfaceAdapter:
@@ -229,7 +242,7 @@ class AdapterInstanceService:
             row = session.get(AdapterInstanceDB, instance_id)
 
         if not row:
-            raise KeyError(f"Adapter instance {instance_id} not found")
+            raise NotFoundException(f"Adapter instance {instance_id} not found")
 
         adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
         current_version = adapter_class.meta.version
@@ -274,7 +287,7 @@ class AdapterInstanceService:
             row = session.get(AdapterInstanceDB, instance_id)
 
         if not row:
-            raise KeyError(f"Adapter instance {instance_id} not found")
+            raise NotFoundException(f"Adapter instance {instance_id} not found")
 
         return AdapterInstance(
             id=row.id,
@@ -285,6 +298,18 @@ class AdapterInstanceService:
     @staticmethod
     def create(instance_create: AdapterInstanceCreate) -> AdapterInstance:
         with get_session() as session:
+            # Check for duplicate (adapter_name, identifier)
+            existing = session.exec(
+                select(AdapterInstanceDB).where(
+                    AdapterInstanceDB.adapter_name == instance_create.adapter_name,
+                    AdapterInstanceDB.identifier == instance_create.identifier,
+                )
+            ).first()
+            if existing:
+                raise ConflictException(
+                    f"Adapter instance {instance_create.adapter_name}.{instance_create.identifier} already exists"
+                )
+
             db_obj = AdapterInstanceDB(
                 adapter_name=instance_create.adapter_name,
                 identifier=instance_create.identifier,
@@ -293,10 +318,6 @@ class AdapterInstanceService:
             session.commit()
             session.refresh(db_obj)
 
-        # instance_object = AdapterService.create_instance(
-        #    db_obj.adapter_name, db_obj.identifier
-        # )
-        # AdapterInstanceService.instance_objects[db_obj.id] = instance_object
         logger.info(
             f"Created adapter instance: {instance_create.adapter_name}.{instance_create.identifier}"
         )
@@ -351,7 +372,7 @@ class AdapterInstanceService:
             ).first()
 
             if not instance_record:
-                raise ValueError("Not found")
+                raise NotFoundException("Adapter instance not found")
 
             instance_id = instance_record.id
             session.delete(instance_record)

@@ -13,6 +13,7 @@ from sqlmodel import select
 
 from pushikoo.db import PipIndex as PipIndexDB
 from pushikoo.db import get_session
+from pushikoo.service.base import ConflictException
 
 
 # Regex for valid package spec: package names with optional version specifiers
@@ -198,7 +199,7 @@ class PIPService:
                 select(PipIndexDB).where(PipIndexDB.url == url)
             ).first()
             if existing:
-                raise ValueError(f"Index URL '{url}' already exists")
+                raise ConflictException(f"Index URL '{url}' already exists")
 
             db_obj = PipIndexDB(url=url)
             session.add(db_obj)

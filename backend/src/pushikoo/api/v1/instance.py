@@ -12,6 +12,7 @@ from pushikoo.model.adapter import (
 )
 from pushikoo.model.pagination import Page
 from pushikoo.service.adapter import AdapterInstanceService
+from pushikoo.service.base import ConflictException, NotFoundException
 
 router = APIRouter(prefix="/instances", tags=["instances"])
 
@@ -38,10 +39,10 @@ def create_instance(instance_create: AdapterInstanceCreate) -> AdapterInstance:
     """Create a new adapter instance."""
     try:
         return AdapterInstanceService.create(instance_create)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter not found"
-        )
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -51,10 +52,8 @@ def delete_instance(instance_id: UUID) -> Response:
         instance = AdapterInstanceService.get(instance_id)
         AdapterInstanceService.delete(instance.adapter_name, instance.identifier)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except (KeyError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter instance not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/{instance_id}/config")
@@ -66,10 +65,8 @@ def get_instance_config(instance_id: UUID) -> dict:
             instance.adapter_name, instance.identifier
         )
         return config.model_dump()
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter instance not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.put("/{instance_id}/config")
@@ -80,10 +77,8 @@ def set_instance_config(instance_id: UUID, config: dict[str, Any]) -> dict:
         return AdapterInstanceService.set_config(
             instance.adapter_name, instance.identifier, config
         )
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter instance not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

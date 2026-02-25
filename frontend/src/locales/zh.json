@@ -41,7 +41,7 @@
     },
     "login": {
         "title": "继续使用 Pushikoo",
-        "accessToken": "访问令牌",
+        "subtitle": "登录以继续。",
         "signInToken": "使用令牌登录",
         "signInSso": "使用 SSO 登录",
         "or": "或",

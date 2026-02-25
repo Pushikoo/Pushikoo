@@ -41,7 +41,7 @@
     },
     "login": {
         "title": "Continue to Pushikoo",
-        "accessToken": "Access Token",
+        "subtitle": "Log in to continue.",
         "signInToken": "SIGN IN WITH TOKEN",
         "signInSso": "SIGN IN WITH SSO",
         "or": "or",

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from pushikoo.model.adapter import AdapterMeta
 from pushikoo.service.adapter import AdapterService
+from pushikoo.service.base import NotFoundException
 
 router = APIRouter(prefix="/adapters", tags=["adapters"])
 
@@ -19,20 +20,16 @@ def list_adapters() -> list[AdapterMeta]:
 def get_adapter_config(adapter_name: str) -> dict:
     try:
         return AdapterService.get_config(adapter_name)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.put("/{adapter_name}/config")
 def set_adapter_config(adapter_name: str, config: dict[str, Any]) -> dict:
     try:
         return AdapterService.set_config(adapter_name, config)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -44,17 +41,13 @@ def set_adapter_config(adapter_name: str, config: dict[str, Any]) -> dict:
 def get_adapter_config_schema(adapter_name: str) -> dict:
     try:
         return AdapterService.get_config_jsonschema(adapter_name)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/{adapter_name}/instance-config/schema")
 def get_adapter_instance_config_schema(adapter_name: str) -> dict:
     try:
         return AdapterService.get_instance_config_jsonschema(adapter_name)
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Adapter not found"
-        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
