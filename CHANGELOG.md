@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/Pushikoo/Pushikoo/compare/v0.10.2...v0.11.0) (2026-02-25)
+
+
+### Miscellaneous Chores
+
+* trigger ci ([8a9d30e](https://github.com/Pushikoo/Pushikoo/commit/8a9d30ed3994f579cf3560349826c30f17795b1e))
+
 ## [0.10.2](https://github.com/Pushikoo/Pushikoo/compare/v0.10.1...v0.10.2) (2026-01-15)
 
 
