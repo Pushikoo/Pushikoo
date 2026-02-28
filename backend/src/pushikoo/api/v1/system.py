@@ -2,6 +2,7 @@ import datetime
 from typing import Any
 
 from fastapi import APIRouter
+from sqlalchemy import delete
 from sqlmodel import select
 
 from pushikoo.db import FlowInstance, FlowNodeExecution, get_session
@@ -41,19 +42,22 @@ def prune(seconds: int = 14 * 24 * 3600) -> dict:
         if not old_instance_ids:
             return {"deleted_instances": 0, "deleted_node_executions": 0}
 
-        node_count = 0
-        for inst_id in old_instance_ids:
-            nodes = session.exec(
-                select(FlowNodeExecution).where(FlowNodeExecution.flow_instance_id == inst_id)
-            ).all()
-            for node in nodes:
-                session.delete(node)
-                node_count += 1
+        # Bulk delete associated node executions
+        node_result = session.execute(
+            delete(FlowNodeExecution).where(
+                FlowNodeExecution.flow_instance_id.in_(old_instance_ids)  # type: ignore[union-attr]
+            )
+        )
 
-        for inst_id in old_instance_ids:
-            inst = session.get(FlowInstance, inst_id)
-            if inst:
-                session.delete(inst)
+        # Bulk delete expired flow instances
+        inst_result = session.execute(
+            delete(FlowInstance).where(
+                FlowInstance.id.in_(old_instance_ids)  # type: ignore[union-attr]
+            )
+        )
 
         session.commit()
-        return {"deleted_instances": len(old_instance_ids), "deleted_node_executions": node_count}
+        return {
+            "deleted_instances": inst_result.rowcount,
+            "deleted_node_executions": node_result.rowcount,
+        }
