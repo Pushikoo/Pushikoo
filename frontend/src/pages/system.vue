@@ -180,7 +180,6 @@ const doPrune = async () => {
     pruning.value = true
     try {
         await SystemService.pruneApiV1SystemPrunePost({ seconds: 14 * 24 * 3600 })
-        showSnackbar(t('system.pruneSuccess'))
     } catch (e) {
         console.error(e)
         showSnackbar(getApiErrorMessage(e, t('system.pruneFailed')), 'error')

@@ -242,7 +242,6 @@
         "pruneHint": "Clean up flow execution records and node execution records older than 14 days.",
         "confirmPrune": "Confirm Cleanup",
         "pruneDescription": "This will clean the database. This action cannot be undone.",
-        "pruneSuccess": "Database cleaned successfully",
         "pruneFailed": "Failed to clean database"
     },
     "language": {
