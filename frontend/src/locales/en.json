@@ -21,7 +21,8 @@
         "copy": "Copy",
         "copied": "Copied to clipboard",
         "copyFailed": "Failed to copy",
-        "imagePreview": "Image Preview"
+        "imagePreview": "Image Preview",
+        "confirm": "Confirm"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -235,7 +236,14 @@
         "couldNotLoadSchema": "Could not load the configuration schema. Please try again.",
         "configurationSavedSuccessfully": "Configuration saved successfully",
         "failedToSaveConfiguration": "Failed to save configuration",
-        "loadingSystemStatus": "Loading system status..."
+        "common": "Common",
+        "loadingSystemStatus": "Loading system status...",
+        "pruneDatabase": "Clean Database",
+        "pruneHint": "Clean up flow execution records and node execution records older than 14 days.",
+        "confirmPrune": "Confirm Cleanup",
+        "pruneDescription": "This will clean the database. This action cannot be undone.",
+        "pruneSuccess": "Database cleaned successfully",
+        "pruneFailed": "Failed to clean database"
     },
     "language": {
         "title": "Language"

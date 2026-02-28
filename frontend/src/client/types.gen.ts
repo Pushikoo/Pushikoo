@@ -557,6 +557,14 @@ export type GetSystemConfigSchemaApiV1SystemConfigSchemaGetResponse = ({
     [key: string]: unknown;
 });
 
+export type PruneApiV1SystemPrunePostData = {
+    seconds?: number;
+};
+
+export type PruneApiV1SystemPrunePostResponse = ({
+    [key: string]: unknown;
+});
+
 export type AddRecipientApiV1WarningsRecipientsPostData = {
     requestBody: WarningRecipientCreate;
 };

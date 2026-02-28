@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ListAdaptersApiV1AdaptersGetResponse, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetData, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetResponse, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutData, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutResponse, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetData, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetResponse, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetData, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetResponse, CreateCronApiV1CronsPostData, CreateCronApiV1CronsPostResponse, ListCronsApiV1CronsGetData, ListCronsApiV1CronsGetResponse, UpdateCronApiV1CronsCronIdPatchData, UpdateCronApiV1CronsCronIdPatchResponse, DeleteCronApiV1CronsCronIdDeleteData, DeleteCronApiV1CronsCronIdDeleteResponse, GetFileFileAccessIdGetData, GetFileFileAccessIdGetResponse, CreateFlowApiV1FlowsPostData, CreateFlowApiV1FlowsPostResponse, ListFlowsApiV1FlowsGetData, ListFlowsApiV1FlowsGetResponse, ListFlowInstancesApiV1FlowsInstancesGetData, ListFlowInstancesApiV1FlowsInstancesGetResponse, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetResponse, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetData, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetResponse, GetFlowApiV1FlowsFlowIdGetData, GetFlowApiV1FlowsFlowIdGetResponse, UpdateFlowApiV1FlowsFlowIdPutData, UpdateFlowApiV1FlowsFlowIdPutResponse, DeleteFlowApiV1FlowsFlowIdDeleteData, DeleteFlowApiV1FlowsFlowIdDeleteResponse, ExecuteFlowApiV1FlowsFlowIdExecutePostData, ExecuteFlowApiV1FlowsFlowIdExecutePostResponse, ListInstancesApiV1InstancesGetData, ListInstancesApiV1InstancesGetResponse, CreateInstanceApiV1InstancesPostData, CreateInstanceApiV1InstancesPostResponse, DeleteInstanceApiV1InstancesInstanceIdDeleteData, DeleteInstanceApiV1InstancesInstanceIdDeleteResponse, GetInstanceConfigApiV1InstancesInstanceIdConfigGetData, GetInstanceConfigApiV1InstancesInstanceIdConfigGetResponse, SetInstanceConfigApiV1InstancesInstanceIdConfigPutData, SetInstanceConfigApiV1InstancesInstanceIdConfigPutResponse, CreateMessageApiV1MessagesPostData, CreateMessageApiV1MessagesPostResponse, ListMessagesApiV1MessagesGetData, ListMessagesApiV1MessagesGetResponse, GetMessageApiV1MessagesMessageIdGetData, GetMessageApiV1MessagesMessageIdGetResponse, DeleteMessageApiV1MessagesMessageIdDeleteData, DeleteMessageApiV1MessagesMessageIdDeleteResponse, UpdateMessageApiV1MessagesMessageIdPatchData, UpdateMessageApiV1MessagesMessageIdPatchResponse, SsoLoginApiV1OauthLoginGetResponse, SsoCallbackApiV1OauthCallbackGetResponse, InstallPackageByWhlApiV1PipPkgsWhlPostData, InstallPackageByWhlApiV1PipPkgsWhlPostResponse, InstallPackageApiV1PipPkgsSpecPostData, InstallPackageApiV1PipPkgsSpecPostResponse, UninstallPackageApiV1PipPkgsPackageNameDeleteData, UninstallPackageApiV1PipPkgsPackageNameDeleteResponse, ListIndexesApiV1PipIndexesGetData, ListIndexesApiV1PipIndexesGetResponse, GetIndexApiV1PipIndexesUrlGetData, GetIndexApiV1PipIndexesUrlGetResponse, AddIndexApiV1PipIndexesUrlPostData, AddIndexApiV1PipIndexesUrlPostResponse, DeleteIndexApiV1PipIndexesUrlDeleteData, DeleteIndexApiV1PipIndexesUrlDeleteResponse, ServeIndexGetResponse, ServeSpaFullPathGetData, ServeSpaFullPathGetResponse, GetSystemConfigApiV1SystemConfigGetResponse, SetSystemConfigApiV1SystemConfigPutData, SetSystemConfigApiV1SystemConfigPutResponse, GetSystemConfigSchemaApiV1SystemConfigSchemaGetResponse, AddRecipientApiV1WarningsRecipientsPostData, AddRecipientApiV1WarningsRecipientsPostResponse, ListRecipientsApiV1WarningsRecipientsGetData, ListRecipientsApiV1WarningsRecipientsGetResponse, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteData, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteResponse } from './types.gen';
+import type { ListAdaptersApiV1AdaptersGetResponse, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetData, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetResponse, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutData, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutResponse, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetData, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetResponse, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetData, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetResponse, CreateCronApiV1CronsPostData, CreateCronApiV1CronsPostResponse, ListCronsApiV1CronsGetData, ListCronsApiV1CronsGetResponse, UpdateCronApiV1CronsCronIdPatchData, UpdateCronApiV1CronsCronIdPatchResponse, DeleteCronApiV1CronsCronIdDeleteData, DeleteCronApiV1CronsCronIdDeleteResponse, GetFileFileAccessIdGetData, GetFileFileAccessIdGetResponse, CreateFlowApiV1FlowsPostData, CreateFlowApiV1FlowsPostResponse, ListFlowsApiV1FlowsGetData, ListFlowsApiV1FlowsGetResponse, ListFlowInstancesApiV1FlowsInstancesGetData, ListFlowInstancesApiV1FlowsInstancesGetResponse, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetResponse, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetData, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetResponse, GetFlowApiV1FlowsFlowIdGetData, GetFlowApiV1FlowsFlowIdGetResponse, UpdateFlowApiV1FlowsFlowIdPutData, UpdateFlowApiV1FlowsFlowIdPutResponse, DeleteFlowApiV1FlowsFlowIdDeleteData, DeleteFlowApiV1FlowsFlowIdDeleteResponse, ExecuteFlowApiV1FlowsFlowIdExecutePostData, ExecuteFlowApiV1FlowsFlowIdExecutePostResponse, ListInstancesApiV1InstancesGetData, ListInstancesApiV1InstancesGetResponse, CreateInstanceApiV1InstancesPostData, CreateInstanceApiV1InstancesPostResponse, DeleteInstanceApiV1InstancesInstanceIdDeleteData, DeleteInstanceApiV1InstancesInstanceIdDeleteResponse, GetInstanceConfigApiV1InstancesInstanceIdConfigGetData, GetInstanceConfigApiV1InstancesInstanceIdConfigGetResponse, SetInstanceConfigApiV1InstancesInstanceIdConfigPutData, SetInstanceConfigApiV1InstancesInstanceIdConfigPutResponse, CreateMessageApiV1MessagesPostData, CreateMessageApiV1MessagesPostResponse, ListMessagesApiV1MessagesGetData, ListMessagesApiV1MessagesGetResponse, GetMessageApiV1MessagesMessageIdGetData, GetMessageApiV1MessagesMessageIdGetResponse, DeleteMessageApiV1MessagesMessageIdDeleteData, DeleteMessageApiV1MessagesMessageIdDeleteResponse, UpdateMessageApiV1MessagesMessageIdPatchData, UpdateMessageApiV1MessagesMessageIdPatchResponse, SsoLoginApiV1OauthLoginGetResponse, SsoCallbackApiV1OauthCallbackGetResponse, InstallPackageByWhlApiV1PipPkgsWhlPostData, InstallPackageByWhlApiV1PipPkgsWhlPostResponse, InstallPackageApiV1PipPkgsSpecPostData, InstallPackageApiV1PipPkgsSpecPostResponse, UninstallPackageApiV1PipPkgsPackageNameDeleteData, UninstallPackageApiV1PipPkgsPackageNameDeleteResponse, ListIndexesApiV1PipIndexesGetData, ListIndexesApiV1PipIndexesGetResponse, GetIndexApiV1PipIndexesUrlGetData, GetIndexApiV1PipIndexesUrlGetResponse, AddIndexApiV1PipIndexesUrlPostData, AddIndexApiV1PipIndexesUrlPostResponse, DeleteIndexApiV1PipIndexesUrlDeleteData, DeleteIndexApiV1PipIndexesUrlDeleteResponse, ServeIndexGetResponse, ServeSpaFullPathGetData, ServeSpaFullPathGetResponse, GetSystemConfigApiV1SystemConfigGetResponse, SetSystemConfigApiV1SystemConfigPutData, SetSystemConfigApiV1SystemConfigPutResponse, GetSystemConfigSchemaApiV1SystemConfigSchemaGetResponse, PruneApiV1SystemPrunePostData, PruneApiV1SystemPrunePostResponse, AddRecipientApiV1WarningsRecipientsPostData, AddRecipientApiV1WarningsRecipientsPostResponse, ListRecipientsApiV1WarningsRecipientsGetData, ListRecipientsApiV1WarningsRecipientsGetResponse, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteData, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteResponse } from './types.gen';
 
 export class AdaptersService {
     /**
@@ -922,6 +922,27 @@ export class SystemService {
             url: '/api/v1/system/config/schema'
         });
     }
+    
+    /**
+     * Prune
+     * Delete FlowInstance and FlowNodeExecution records older than the given seconds.
+     * @param data The data for the request.
+     * @param data.seconds
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static pruneApiV1SystemPrunePost(data: PruneApiV1SystemPrunePostData = {}): CancelablePromise<PruneApiV1SystemPrunePostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/system/prune',
+            query: {
+                seconds: data.seconds
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
 }
 
 export class V1Service {
@@ -1603,6 +1624,27 @@ export class V1Service {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/v1/system/config/schema'
+        });
+    }
+    
+    /**
+     * Prune
+     * Delete FlowInstance and FlowNodeExecution records older than the given seconds.
+     * @param data The data for the request.
+     * @param data.seconds
+     * @returns unknown Successful Response
+     * @throws ApiError
+     */
+    public static pruneApiV1SystemPrunePost(data: PruneApiV1SystemPrunePostData = {}): CancelablePromise<PruneApiV1SystemPrunePostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/system/prune',
+            query: {
+                seconds: data.seconds
+            },
+            errors: {
+                422: 'Validation Error'
+            }
         });
     }
     

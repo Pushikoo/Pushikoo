@@ -21,7 +21,8 @@
         "copy": "复制",
         "copied": "已复制到剪贴板",
         "copyFailed": "复制失败",
-        "imagePreview": "图片预览"
+        "imagePreview": "图片预览",
+        "confirm": "确认"
     },
     "nav": {
         "dashboard": "仪表板",
@@ -235,7 +236,14 @@
         "couldNotLoadSchema": "无法加载配置架构。请重试。",
         "configurationSavedSuccessfully": "配置保存成功",
         "failedToSaveConfiguration": "保存配置失败",
-        "loadingSystemStatus": "正在加载系统状态..."
+        "common": "通用",
+        "loadingSystemStatus": "正在加载系统状态...",
+        "pruneDatabase": "清理数据库",
+        "pruneHint": "清理14天前的流程运行记录和节点执行记录。",
+        "confirmPrune": "确认清理",
+        "pruneDescription": "将清理数据库，此操作不可撤销。",
+        "pruneSuccess": "数据库清理成功",
+        "pruneFailed": "清理数据库失败"
     },
     "language": {
         "title": "语言"
