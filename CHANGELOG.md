@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.0](https://github.com/Pushikoo/Pushikoo/compare/v0.11.0...v0.12.0) (2026-02-28)
+
+
+### Features
+
+* add prune API to clean old flow execution records ([38797ce](https://github.com/Pushikoo/Pushikoo/commit/38797ce693593bda7e67373b29413fd0ce4e72e7))
+
+
+### Bug Fixes
+
+* **frontend:** remove prune success notification ([bff29c1](https://github.com/Pushikoo/Pushikoo/commit/bff29c1d886a23fe7468080a3b4346d250394326))
+
+
+### Performance Improvements
+
+* **api:** optimize prune endpoint with bulk DELETE queries ([b61189a](https://github.com/Pushikoo/Pushikoo/commit/b61189a5862f7b56d80597ca022f4bebce695435))
+
+
+### Documentation
+
+* add agent configuration symlink files ([de15a1f](https://github.com/Pushikoo/Pushikoo/commit/de15a1f93eab56604afa4f340ac124df6f2d1da4))
+
 ## [0.11.0](https://github.com/Pushikoo/Pushikoo/compare/v0.10.2...v0.11.0) (2026-02-25)
 
 
