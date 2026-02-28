@@ -1,3 +1,4 @@
+import datetime
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,12 +18,14 @@ from pushikoo_interface import (
     StructText,
     TerminateFlowException,
 )
+from sqlalchemy import delete
 from sqlmodel import func, select
 
 from pushikoo.db import AdapterInstance as AdapterInstanceDB
 from pushikoo.db import Flow as FlowDB
 from pushikoo.db import FlowCron as FlowCronDB
 from pushikoo.db import FlowInstance as FlowInstanceDB
+from pushikoo.db import FlowNodeExecution as FlowNodeExecutionDB
 from pushikoo.db import get_session
 from pushikoo.model.config import SystemConfig
 from pushikoo.model.cron import Cron, CronCreate, CronListFilter, CronUpdate
@@ -282,9 +285,34 @@ class FlowInstanceService:
                 offset=filter.offset if filter else None,
             )
 
+    @staticmethod
+    def prune(seconds: int) -> int:
+        """Delete FlowInstance records older than *seconds*."""
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=seconds)
+        with get_session() as session:
+            result = session.execute(
+                delete(FlowInstanceDB).where(FlowInstanceDB.created_at < cutoff)
+            )
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]
+
 
 class FlowNodeExecutionService:
     """Service for managing FlowNodeExecution records."""
+
+    @staticmethod
+    def prune(seconds: int) -> int:
+        """Delete FlowNodeExecution records whose FlowInstance is older than *seconds*."""
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=seconds)
+        with get_session() as session:
+            old_ids = select(FlowInstanceDB.id).where(FlowInstanceDB.created_at < cutoff)
+            result = session.execute(
+                delete(FlowNodeExecutionDB).where(
+                    FlowNodeExecutionDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
+                )
+            )
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]
 
     @staticmethod
     def create(
