@@ -1,26 +1,29 @@
 import importlib
-from importlib.metadata import Distribution, EntryPoint, entry_points
-from pathlib import Path
 import sys
 import threading
-from typing import Any, Iterable
+from importlib.metadata import EntryPoint, entry_points
+from pathlib import Path
+from typing import Any
 from uuid import UUID
 
+from fastapi import FastAPI
 from loguru import logger
 from pushikoo_interface import (
     Adapter,
-    AdapterFrameworkContext as AdapterFrameworkContextInterface,
-)
-from pushikoo_interface import Adapter as InterfaceAdapter
-from pushikoo_interface import (
-    AdapterMeta as InterfaceAdapterMeta,
     Getter,
     Processer,
     Pusher,
     get_adapter_config_types,
 )
+from pushikoo_interface import Adapter as InterfaceAdapter
+from pushikoo_interface import (
+    AdapterFrameworkContext as AdapterFrameworkContextInterface,
+)
+from pushikoo_interface import (
+    AdapterMeta as InterfaceAdapterMeta,
+)
 from pydantic import ValidationError
-from sqlmodel import select
+from sqlmodel import func, select
 
 from pushikoo.db import AdapterInstance as AdapterInstanceDB
 from pushikoo.db import get_session
@@ -32,17 +35,60 @@ from pushikoo.model.adapter import (
     AdapterType,
 )
 from pushikoo.model.config import SystemConfig
-from pushikoo.service.config import ConfigService
-from pushikoo.util.setting import DATA_DIR
-from sqlmodel import func
 from pushikoo.model.pagination import Page, apply_page_limit
 from pushikoo.service.base import (
     ConflictException,
     InvalidInputException,
     NotFoundException,
 )
+from pushikoo.service.config import ConfigService
+from pushikoo.util.setting import DATA_DIR
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
+adapter_container_app = FastAPI()
+
+
+def _remove_routes_by_prefix(prefix: str) -> None:
+    """Remove all routes from adapter_container_app whose path starts with prefix."""
+    adapter_container_app.router.routes = [
+        r
+        for r in adapter_container_app.router.routes
+        if not getattr(r, "path", "").startswith(prefix)
+    ]
+
+
+def _set_adapter_router(adapter_name: str, adapter_class: type[Adapter]) -> None:
+    prefix = f"/adapters/{adapter_name}"
+    _remove_routes_by_prefix(prefix)
+    try:
+        router = adapter_class.get_adapter_router()
+    except NotImplementedError:
+        return
+    except Exception as e:
+        logger.exception(f"Failed to build adapter router for {adapter_name}: {e}")
+        return
+    adapter_container_app.include_router(router, prefix=prefix)
+
+
+def _remove_adapter_router(adapter_name: str) -> None:
+    _remove_routes_by_prefix(f"/adapters/{adapter_name}")
+
+
+def _set_instance_router(instance: InterfaceAdapter) -> None:
+    prefix = f"/adapter_instances/{instance.adapter_name}.{instance.identifier}"
+    _remove_routes_by_prefix(prefix)
+    try:
+        router = instance.get_instance_router()
+    except NotImplementedError:
+        return
+    except Exception as e:
+        logger.exception(f"Failed to build instance router for {instance}: {e}")
+        return
+    adapter_container_app.include_router(router, prefix=prefix)
+
+
+def _remove_instance_router(adapter_name: str, identifier: str) -> None:
+    _remove_routes_by_prefix(f"/adapter_instances/{adapter_name}.{identifier}")
 
 
 class AdapterFrameworkContext(AdapterFrameworkContextInterface):
@@ -106,6 +152,7 @@ class AdapterService:
                     AdapterService.adapters.pop(name, None)
                     AdapterService.adapter_versions.pop(name, None)
                     AdapterService.adapter_metas.pop(name, None)
+                    _remove_adapter_router(name)
 
             # Load or reload adapters
             for ep in discovered_eps:
@@ -120,7 +167,9 @@ class AdapterService:
                         AdapterService.adapters[name] = cls
                         AdapterService.adapter_versions[name] = ep.dist.version
                         AdapterService.adapter_metas[name] = getattr(cls, "meta", None)
+                        _set_adapter_router(name, cls)
                     except Exception:
+                        _remove_adapter_router(name)
                         # Error already logged in _force_load_adapter, continue with other adapters
                         continue
 
@@ -237,7 +286,7 @@ class AdapterInstanceService:
         return result
 
     @staticmethod
-    def get_object_by_id(instance_id: UUID) -> InterfaceAdapter:
+    def ensure_load_instance(instance_id: UUID) -> None:
         with get_session() as session:
             row = session.get(AdapterInstanceDB, instance_id)
 
@@ -248,37 +297,37 @@ class AdapterInstanceService:
         current_version = adapter_class.meta.version
 
         with AdapterInstanceService.instance_lock:
-            if instance_id in AdapterInstanceService.instance_objects:
-                cached_version = AdapterInstanceService.instance_versions.get(
-                    instance_id
+            cached_version = AdapterInstanceService.instance_versions.get(instance_id)
+            if cached_version == current_version:
+                return
+
+            if cached_version is not None:
+                logger.info(
+                    f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
+                    f"{cached_version} -> {current_version}, re-instantiating"
                 )
 
-                if cached_version != current_version:
-                    logger.info(
-                        f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
-                        f"{cached_version} -> {current_version}, re-instantiating"
-                    )
+            instance = AdapterService.create_instance(row.adapter_name, row.identifier)
+            AdapterInstanceService.instance_objects[instance_id] = instance
+            AdapterInstanceService.instance_versions[instance_id] = current_version
+            _set_instance_router(instance)
 
-                    del AdapterInstanceService.instance_objects[instance_id]
-                    del AdapterInstanceService.instance_versions[instance_id]
-                    new_instance = AdapterService.create_instance(
-                        row.adapter_name, row.identifier
-                    )
-                    AdapterInstanceService.instance_objects[instance_id] = new_instance
-                    AdapterInstanceService.instance_versions[instance_id] = (
-                        current_version
-                    )
-
-                    return new_instance
-                else:
-                    return AdapterInstanceService.instance_objects[instance_id]
-            else:
-                instance = AdapterService.create_instance(
-                    row.adapter_name, row.identifier
+    @staticmethod
+    def ensure_load_all_instances() -> None:
+        with get_session() as session:
+            rows = session.exec(select(AdapterInstanceDB)).all()
+        for row in rows:
+            try:
+                AdapterInstanceService.ensure_load_instance(row.id)
+            except Exception:
+                logger.exception(
+                    f"Failed to load instance {row.adapter_name}.{row.identifier}"
                 )
-                AdapterInstanceService.instance_objects[instance_id] = instance
-                AdapterInstanceService.instance_versions[instance_id] = current_version
-                return instance
+
+    @staticmethod
+    def get_object_by_id(instance_id: UUID) -> InterfaceAdapter:
+        AdapterInstanceService.ensure_load_instance(instance_id)
+        return AdapterInstanceService.instance_objects[instance_id]
 
     @staticmethod
     def get(instance_id: UUID) -> AdapterInstance:
@@ -321,11 +370,14 @@ class AdapterInstanceService:
         logger.info(
             f"Created adapter instance: {instance_create.adapter_name}.{instance_create.identifier}"
         )
-        return AdapterInstance(
+        result = AdapterInstance(
             id=db_obj.id,
             adapter_name=db_obj.adapter_name,
             identifier=db_obj.identifier,
         )
+        # Eagerly instantiate so the instance router is registered immediately
+        AdapterInstanceService.get_object_by_id(db_obj.id)
+        return result
 
     @staticmethod
     def list(filter: AdapterInstanceListFilter) -> Page[AdapterInstance]:
@@ -380,6 +432,7 @@ class AdapterInstanceService:
 
         AdapterInstanceService.instance_objects.pop(instance_id, None)
         AdapterInstanceService.instance_versions.pop(instance_id, None)
+        _remove_instance_router(adapter_name, identifier)
 
         logger.info(f"Deleted adapter instance: {adapter_name}.{identifier}")
 
