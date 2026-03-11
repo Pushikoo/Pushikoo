@@ -14,6 +14,7 @@ from pushikoo.api import app
 from pushikoo.db import engine as app_engine
 from pushikoo.service.adapter import AdapterService
 from pushikoo.service.refresh import CronService
+from pushikoo.util.env import is_running_from_source
 from pushikoo.util.setting import settings
 
 
@@ -94,7 +95,7 @@ def main() -> None:
     else:
         logger.info("Pushikoo started")
 
-    if settings.ENVIRONMENT == "local" and not Path("pyproject.toml").exists():
+    if settings.ENVIRONMENT == "local" and not is_running_from_source():
         logger.warning(
             "\n================================== ⚠️ LOCAL MODE ⚠️ ==================================\n"
             "Application is running in LOCAL mode. This mode disables production-level security "
