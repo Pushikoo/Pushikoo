@@ -44,8 +44,14 @@ dependencies = [
 [project.scripts]
 pushikoo = "pushikoo.app:main"
 
-[project.optional-dependencies]
-dev = ["pip-audit>=2.10.0", "ruff", "pytest"]
+[dependency-groups]
+dev = [
+    "pip-audit>=2.10.0",
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+]
 build = ["hatch>=1.16.2"]
 
 [tool.hatch.build.targets.sdist]
@@ -70,3 +76,10 @@ no-emit-index-url = true
 addopts = "--rootdir=."
 pythonpath = ["src"]
 testpaths = ["test"]
+
+[tool.coverage.run]
+omit = [
+    "src/pushikoo/app.py",
+    "src/pushikoo/alembic/*",
+    "src/pushikoo/api/spa.py",
+]

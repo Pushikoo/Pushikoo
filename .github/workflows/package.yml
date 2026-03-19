@@ -37,21 +37,22 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install frontend dependencies
-        run: pnpm install
-        working-directory: frontend
+      - name: Install pnpm and frontend dependencies
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: |
+            - cwd: frontend
 
       - name: Sync environment
-        run: uv sync --extra build
+        run: uv sync --group build --locked
         working-directory: backend
 
       - name: Build distributions
@@ -90,7 +91,6 @@ jobs:
             dist/*
 
   pypi-publish:
-    if: true
     runs-on: ubuntu-latest
     needs:
       - release-please
