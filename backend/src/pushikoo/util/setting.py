@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -5,7 +6,7 @@ from pydantic import AnyUrl, BeforeValidator, Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 CRON_SCHEDULER_MAX_WORKERS = 10
-DATA_DIR = Path("./data")
+DATA_DIR = Path(os.environ.get("PUSHIKOO_DATA_DIR", "./data"))
 CACHE_DIR = DATA_DIR / ".cache"
 FILE_DIR = DATA_DIR / "files"
 

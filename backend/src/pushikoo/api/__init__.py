@@ -16,18 +16,6 @@ apirouter = APIRouter(prefix="/api")
 apirouter.include_router(v1_oauth_router)
 apirouter.include_router(v1_router)
 
-_fastapi_kwargs: dict = {}
-if settings.ENVIRONMENT == "production":
-    _fastapi_kwargs["docs_url"] = None
-    _fastapi_kwargs["redoc_url"] = None
-
-app = FastAPI(**_fastapi_kwargs)
-app.include_router(apirouter)
-app.include_router(file_router)
-app.mount("/ext", adapter_container_app)
-app.include_router(sparouter)
-
-
 def _get_session_secret() -> str:
     """
     Get a secret key for session middleware.
@@ -44,22 +32,38 @@ def _get_session_secret() -> str:
     return token_hex(32)
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=_get_session_secret(),
-)
+def create_app() -> FastAPI:
+    _fastapi_kwargs: dict = {}
+    if settings.ENVIRONMENT == "production":
+        _fastapi_kwargs["docs_url"] = None
+        _fastapi_kwargs["redoc_url"] = None
 
+    app = FastAPI(**_fastapi_kwargs)
+    app.include_router(apirouter)
+    app.include_router(file_router)
+    app.mount("/ext", adapter_container_app)
+    app.include_router(sparouter)
 
-@app.exception_handler(Exception)
-async def internal_server_error_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal Server Error"},
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=_get_session_secret(),
+    )
+
+    @app.exception_handler(Exception)
+    async def internal_server_error_handler(request: Request, exc: Exception):
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal Server Error"},
+        )
+
+    return app
+
+
+app = create_app()

@@ -36,6 +36,8 @@ FORMAT_TO_SUFFIX = {
 
 
 class ImageService:
+    _http_get = staticmethod(requests.get)
+
     @staticmethod
     def create(uri: str) -> str:
         """
@@ -116,7 +118,7 @@ class ImageService:
 
         elif parsed.scheme in ("http", "https"):
             # Download to temp file
-            response = requests.get(uri, stream=True, timeout=30)
+            response = ImageService._http_get(uri, stream=True, timeout=30)
             response.raise_for_status()
 
             # Create temp file
