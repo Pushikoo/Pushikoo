@@ -3,6 +3,7 @@ from uuid import UUID
 
 from loguru import logger
 from pushikoo_interface import Detail, Struct, StructImage, StructText
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import func, select
 
 from pushikoo.db import Message as MessageDB
@@ -15,7 +16,11 @@ from pushikoo.model.message import (
     MessageUpdate,
 )
 from pushikoo.model.pagination import Page, apply_page_limit
-from pushikoo.service.base import InvalidInputException, NotFoundException
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 
 class MessageService:
@@ -29,7 +34,13 @@ class MessageService:
                 content=message_create.content.model_dump(),
             )
             session.add(db_obj)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                raise ConflictException(
+                    "Message already exists for the same getter and identifier"
+                ) from exc
             session.refresh(db_obj)
         logger.info(
             f"Created message: {message_create.message_identifier} from {message_create.getter_name}"
@@ -232,7 +243,13 @@ class MessageService:
                 setattr(obj, k, v)
             if update_data:
                 session.add(obj)
-                session.commit()
+                try:
+                    session.commit()
+                except IntegrityError as exc:
+                    session.rollback()
+                    raise ConflictException(
+                        "Message already exists for the same getter and identifier"
+                    ) from exc
                 session.refresh(obj)
 
             result = Message(

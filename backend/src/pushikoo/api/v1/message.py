@@ -10,8 +10,8 @@ from pushikoo.model.message import (
     MessageUpdate,
 )
 from pushikoo.model.pagination import Page
+from pushikoo.service.base import ConflictException, NotFoundException
 from pushikoo.service.message import MessageService
-from pushikoo.service.base import NotFoundException
 
 
 router = APIRouter(prefix="/messages", tags=["messages"])
@@ -19,7 +19,10 @@ router = APIRouter(prefix="/messages", tags=["messages"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_message(payload: MessageCreate) -> Message:
-    return MessageService.create(payload)
+    try:
+        return MessageService.create(payload)
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.get("")
@@ -67,4 +70,9 @@ def delete_message(message_id: UUID) -> Response:
 
 @router.patch("/{message_id}")
 def update_message(message_id: UUID, payload: MessageUpdate) -> Message:
-    return MessageService.update(message_id, payload)
+    try:
+        return MessageService.update(message_id, payload)
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
