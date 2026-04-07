@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-from pushikoo.api.security import verify_token
 from pushikoo.api.v1.pip import router as pip_router
 from pushikoo.api.v1.adapter import router as adapter_router
 from pushikoo.api.v1.instance import router as instance_router
@@ -9,6 +8,7 @@ from pushikoo.api.v1.cron import router as cron_router
 from pushikoo.api.v1.system import router as system_router
 from pushikoo.api.v1.oauth import router as oauth_router
 from pushikoo.api.v1.flow import router as flow_router
+from pushikoo.util.auth import verify_token
 
 __all__ = ["oauth_router"]
 

@@ -42,6 +42,7 @@ from pushikoo.service.base import (
     NotFoundException,
 )
 from pushikoo.service.config import ConfigService
+from pushikoo.util.auth import verify_token
 from pushikoo.util.setting import DATA_DIR, settings
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
@@ -130,6 +131,7 @@ class AdapterService:
         ctx.get_proxies = lambda: (
             ConfigService("system", SystemConfig).get().network.proxies
         )
+        ctx.verify_token = verify_token
 
         adapter_config_type, _ = get_adapter_config_types(cls)
         ctx.get_config = lambda: ConfigService(adapter_name, adapter_config_type).get()
@@ -251,6 +253,7 @@ class AdapterService:
         ctx.instance_base_url = (
             f"{settings.BASE_HOST}/ext/adapter_instances/{name}.{identifier}"
         )
+        ctx.verify_token = verify_token
         instance = obj.create(identifier=identifier, ctx=ctx)
         logger.debug(f"Created adapter instance: {name}.{identifier}")
         return instance
