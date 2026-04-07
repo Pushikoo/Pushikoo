@@ -75,11 +75,7 @@
     <!-- Main Content with scroll -->
     <v-main class="bg-background" style="overflow-y: auto;">
       <v-container fluid class="pa-2 pa-sm-4 pa-md-6">
-        <router-view v-slot="{ Component }">
-          <keep-alive :max="10">
-            <component :is="Component" />
-          </keep-alive>
-        </router-view>
+        <router-view />
       </v-container>
     </v-main>
 
