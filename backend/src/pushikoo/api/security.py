@@ -28,7 +28,7 @@ async def verify_token(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> str:
-    if settings.ENVIRONMENT == "local":
+    if settings.ENVIRONMENT == "local" and settings.LOCAL_AUTH_DISABLED:
         return "whatever"
 
     token: str | None = None

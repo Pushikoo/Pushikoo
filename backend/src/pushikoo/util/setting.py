@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     SECRET_TOKENS: list[str] = Field(default_factory=list)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    LOCAL_AUTH_DISABLED: bool = False
 
     ENVIRONMENT: Literal["local", "staging", "production"] = "production"
     # ------------------------------------------------------------------

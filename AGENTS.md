@@ -14,3 +14,4 @@ However, the reference must be modified to ensure that the reference does not ma
 
 1. Before modifying a code file, read it again to ensure that it is up to date. The file may be manually modified by the user.
 1. Never create an alembic version file manually, use `alembic revision` instead, unless user specifies.
+1. Don't create tests automatically.
