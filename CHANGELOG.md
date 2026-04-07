@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0](https://github.com/Pushikoo/Pushikoo/compare/v0.12.0...v0.13.0) (2026-04-07)
+
+
+### Features
+
+* **adapter:** add base URL properties to adapter context ([2a01883](https://github.com/Pushikoo/Pushikoo/commit/2a018835b9ec729225c1b9e401702f4b829b11f9))
+* **adapter:** inject class-level context when loading adapters ([e7a50d4](https://github.com/Pushikoo/Pushikoo/commit/e7a50d4824fa963782c914113f48f4fc9f458de5))
+* **auth:** add cookie-based authentication support ([c00ce47](https://github.com/Pushikoo/Pushikoo/commit/c00ce4715daeb9a17f8e47002eeab70b9cdb2136))
+* **auth:** add LOCAL_AUTH_DISABLED setting to control local auth bypass ([cee34fd](https://github.com/Pushikoo/Pushikoo/commit/cee34fded265ebe0189114971e8743ba506bf39e))
+
+
+### Bug Fixes
+
+* **adapter:** log missing adapter as warning instead of failing ([9e89116](https://github.com/Pushikoo/Pushikoo/commit/9e89116c8cb41e7d018b849b50657885637a6bc8))
+* **frontend:** remove router keep-alive cache ([3c79cf0](https://github.com/Pushikoo/Pushikoo/commit/3c79cf0a4ab07a5b63a5521c24523c35e805add3))
+
 ## [0.12.0](https://github.com/Pushikoo/Pushikoo/compare/v0.11.0...v0.12.0) (2026-03-11)
 
 
