@@ -1,5 +1,3 @@
-from secrets import token_hex
-
 from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,21 +13,6 @@ from pushikoo.util.setting import settings
 apirouter = APIRouter(prefix="/api")
 apirouter.include_router(v1_oauth_router)
 apirouter.include_router(v1_router)
-
-def _get_session_secret() -> str:
-    """
-    Get a secret key for session middleware.
-
-    - In local environment: use "dev-secret" for convenience
-    - In other environments: use SSO_CLIENT_SECRET or generate a random key
-      (random key means sessions won't survive restarts, but it's secure)
-    """
-    if settings.ENVIRONMENT == "local":
-        return settings.SSO_CLIENT_SECRET or "dev-secret"
-    if settings.SSO_CLIENT_SECRET:
-        return settings.SSO_CLIENT_SECRET
-    # Generate a random secret - sessions won't persist across restarts but it's secure
-    return token_hex(32)
 
 
 def create_app() -> FastAPI:
@@ -53,7 +36,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         SessionMiddleware,
-        secret_key=_get_session_secret(),
+        secret_key=settings.SESSION_SECRET,
     )
 
     @app.exception_handler(Exception)

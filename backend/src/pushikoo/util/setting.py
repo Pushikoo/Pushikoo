@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from secrets import token_hex
 from typing import Annotated, Any, Literal
 
 from pydantic import AnyUrl, BeforeValidator, Field, computed_field
@@ -104,6 +105,22 @@ class Settings(BaseSettings):
         return [str(origin).rstrip("/") for origin in self.raw_cors_origins] + [
             self.FRONTEND_BASE_HOST
         ]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def SESSION_SECRET(self) -> str:
+        """
+        Get a secret key for session middleware.
+
+        - In local environment: use "dev-secret" for convenience
+        - In other environments: use SSO_CLIENT_SECRET or generate a random key
+          (random key means sessions won't survive restarts, but it's secure)
+        """
+        if self.ENVIRONMENT == "local":
+            return self.SSO_CLIENT_SECRET or "dev-secret"
+        if self.SSO_CLIENT_SECRET:
+            return self.SSO_CLIENT_SECRET
+        return token_hex(32)
 
 
 settings = Settings()  # type: ignore
