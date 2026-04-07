@@ -125,7 +125,7 @@ class AdapterService:
         """Inject a class-level context into the adapter class"""
         ctx = AdapterFrameworkContext()
         ctx.adapter_base_url = (
-            f"{settings.BACKEND_BASE_HOST}/ext/adapters/{adapter_name}"
+            f"{settings.BASE_HOST}/ext/adapters/{adapter_name}"
         )
         ctx.get_proxies = lambda: (
             ConfigService("system", SystemConfig).get().network.proxies
@@ -247,9 +247,9 @@ class AdapterService:
         ctx.get_instance_config = lambda: ConfigService(
             f"{name}.{identifier}", adapter_config_inst_type
         ).get()
-        ctx.adapter_base_url = f"{settings.BACKEND_BASE_HOST}/ext/adapters/{name}"
+        ctx.adapter_base_url = f"{settings.BASE_HOST}/ext/adapters/{name}"
         ctx.instance_base_url = (
-            f"{settings.BACKEND_BASE_HOST}/ext/adapter_instances/{name}.{identifier}"
+            f"{settings.BASE_HOST}/ext/adapter_instances/{name}.{identifier}"
         )
         instance = obj.create(identifier=identifier, ctx=ctx)
         logger.debug(f"Created adapter instance: {name}.{identifier}")

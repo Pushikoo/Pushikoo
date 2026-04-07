@@ -9,89 +9,107 @@ import { VueRouterAutoImports } from "unplugin-vue-router";
 import Vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Utilities
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { fileURLToPath, URL } from "node:url";
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  optimizeDeps: {
-    include: [
-      "marked",
-      "vuedraggable",
-      "vuetify/components/VAlert",
-      "vuetify/components/VAutocomplete",
-      "vuetify/components/VCheckbox",
-      "vuetify/components/VChipGroup",
-      "vuetify/components/VDataTable",
-      "vuetify/components/VEmptyState",
-      "vuetify/components/VFileInput",
-      "vuetify/components/VForm",
-      "vuetify/components/VPagination",
-      "vuetify/components/VProgressCircular",
-      "vuetify/components/VSelect",
-      "vuetify/components/VSheet",
-      "vuetify/components/VSwitch",
-      "vuetify/components/VTabs",
-      "vuetify/components/VTextarea",
-      "vuetify/components/VTextField",
-      "vuetify/components/VWindow",
-      "vuetify/components/transitions",
-    ],
-  },
-  plugins: [
-    VueRouter({
-      dts: "src/typed-router.d.ts",
-    }),
-    Layouts(),
-    AutoImport({
-      imports: [
-        "vue",
-        VueRouterAutoImports,
-        {
-          pinia: ["defineStore", "storeToRefs"],
-        },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const backendUrl = env.VITE_BACKEND_URL || "http://localhost:11589";
+  return {
+    optimizeDeps: {
+      include: [
+        "marked",
+        "vuedraggable",
+        "vuetify/components/VAlert",
+        "vuetify/components/VAutocomplete",
+        "vuetify/components/VCheckbox",
+        "vuetify/components/VChipGroup",
+        "vuetify/components/VDataTable",
+        "vuetify/components/VEmptyState",
+        "vuetify/components/VFileInput",
+        "vuetify/components/VForm",
+        "vuetify/components/VPagination",
+        "vuetify/components/VProgressCircular",
+        "vuetify/components/VSelect",
+        "vuetify/components/VSheet",
+        "vuetify/components/VSwitch",
+        "vuetify/components/VTabs",
+        "vuetify/components/VTextarea",
+        "vuetify/components/VTextField",
+        "vuetify/components/VWindow",
+        "vuetify/components/transitions",
       ],
-      dts: "src/auto-imports.d.ts",
-      eslintrc: {
-        enabled: true,
-      },
-      vueTemplate: true,
-    }),
-    Components({
-      dts: "src/components.d.ts",
-    }),
-    Vue({
-      template: { transformAssetUrls },
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
-      autoImport: true,
-      styles: {
-        configFile: "src/styles/settings.scss",
-      },
-    }),
-    Fonts({
-      fontsource: {
-        families: [
+    },
+    plugins: [
+      VueRouter({
+        dts: "src/typed-router.d.ts",
+      }),
+      Layouts(),
+      AutoImport({
+        imports: [
+          "vue",
+          VueRouterAutoImports,
           {
-            name: "Roboto",
-            weights: [400, 500, 700], // Only load commonly used weights
-            styles: ["normal"], // Remove italic to reduce bundle size
-            subset: "latin", // Only load latin subset
+            pinia: ["defineStore", "storeToRefs"],
           },
         ],
-      },
-    }),
-  ],
+        dts: "src/auto-imports.d.ts",
+        eslintrc: {
+          enabled: true,
+        },
+        vueTemplate: true,
+      }),
+      Components({
+        dts: "src/components.d.ts",
+      }),
+      Vue({
+        template: { transformAssetUrls },
+      }),
+      // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
+      Vuetify({
+        autoImport: true,
+        styles: {
+          configFile: "src/styles/settings.scss",
+        },
+      }),
+      Fonts({
+        fontsource: {
+          families: [
+            {
+              name: "Roboto",
+              weights: [400, 500, 700], // Only load commonly used weights
+              styles: ["normal"], // Remove italic to reduce bundle size
+              subset: "latin", // Only load latin subset
+            },
+          ],
+        },
+      }),
+    ],
 
-  define: { "process.env": {} },
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("src", import.meta.url)),
+    define: { "process.env": {} },
+    resolve: {
+      alias: {
+        "@": fileURLToPath(new URL("src", import.meta.url)),
+      },
+      extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },
-    extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
-  },
-  server: {
-    port: 3000,
-  },
+    server: {
+      port: 3000,
+      proxy: {
+        "/api": {
+          target: backendUrl,
+          changeOrigin: true,
+        },
+        "/file": {
+          target: backendUrl,
+          changeOrigin: true,
+        },
+        "/ext": {
+          target: backendUrl,
+          changeOrigin: true,
+        },
+      },
+    },
+  };
 });

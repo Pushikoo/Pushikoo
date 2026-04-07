@@ -39,7 +39,7 @@ async def sso_login(request: Request):
         raise HTTPException(status_code=503, detail="SSO client init failed")
 
     sso_redirect_url = "{}/api/v1/oauth/callback".format(
-        settings.BACKEND_BASE_HOST.rstrip("/")
+        settings.BASE_HOST.rstrip("/")
     )
     return await client.authorize_redirect(request, sso_redirect_url)
 
@@ -82,5 +82,5 @@ async def sso_callback(request: Request):
 
     access_token = create_access_token({"sub": identifier, "email": email or ""})
 
-    redirect_url = f"{settings.FRONTEND_BASE_HOST}/login?token={access_token}"
+    redirect_url = f"{settings.BASE_HOST}/login?token={access_token}"
     return RedirectResponse(url=redirect_url)

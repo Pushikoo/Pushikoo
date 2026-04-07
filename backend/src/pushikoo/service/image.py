@@ -86,7 +86,7 @@ class ImageService:
                 logger.debug(f"Created file record: {file_id} -> {filename}")
 
             # Return access URL
-            access_url = f"{settings.BACKEND_BASE_HOST}/file/{file_id}"
+            access_url = f"{settings.BASE_HOST}/file/{file_id}"
             return access_url
 
         except Exception as e:

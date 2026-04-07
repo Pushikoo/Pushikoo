@@ -49,23 +49,8 @@ class Settings(BaseSettings):
     LOCAL_AUTH_DISABLED: bool = False
 
     ENVIRONMENT: Literal["local", "staging", "production"] = "production"
-    # ------------------------------------------------------------------
-    # Raw host values loaded from environment variables
-    # These represent the *direct* values from .env (or default values),
-    # and should never be used directly by business logic.
-    # Instead, the public computed fields (BACKEND_BASE_HOST / FRONTEND_BASE_HOST)
-    # determine the effective host based on ENVIRONMENT.
-    # Pattern:
-    #     - In local/staging → use these raw env values
-    #     - In production → ignore these and derive from _BASE_HOST automatically
 
-    raw_backend_host: str = Field(
-        default="http://127.0.0.1:11589", alias="BACKEND_BASE_HOST"
-    )
-    raw_frontend_host: str = Field(
-        default="http://127.0.0.1:3000", alias="FRONTEND_BASE_HOST"
-    )
-    raw_base_host: str = Field(default="https://your.website.com", alias="BASE_HOST")
+    BASE_HOST: str = Field(default="https://your.website.com")
 
     raw_cors_origins: Annotated[list[AnyUrl] | str, BeforeValidator(_parse_cors)] = (
         Field(
@@ -85,37 +70,14 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def BACKEND_BASE_HOST(self) -> str:
-        if self.ENVIRONMENT == "production":
-            return self.raw_base_host
-        return self.raw_backend_host
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def FRONTEND_BASE_HOST(self) -> str:
-        if self.ENVIRONMENT == "production":
-            return self.raw_base_host
-        return self.raw_frontend_host
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
     def CORS_ORIGINS(self) -> list[str]:
-        if self.ENVIRONMENT == "local":
-            return [self.FRONTEND_BASE_HOST]
         return [str(origin).rstrip("/") for origin in self.raw_cors_origins] + [
-            self.FRONTEND_BASE_HOST
+            self.BASE_HOST
         ]
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SESSION_SECRET(self) -> str:
-        """
-        Get a secret key for session middleware.
-
-        - In local environment: use "dev-secret" for convenience
-        - In other environments: use SSO_CLIENT_SECRET or generate a random key
-          (random key means sessions won't survive restarts, but it's secure)
-        """
         if self.ENVIRONMENT == "local":
             return self.SSO_CLIENT_SECRET or "dev-secret"
         if self.SSO_CLIENT_SECRET:

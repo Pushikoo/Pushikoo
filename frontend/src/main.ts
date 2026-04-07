@@ -22,9 +22,7 @@ import "unfonts.css";
 
 const app = createApp(App);
 
-OpenAPI.BASE = import.meta.env.DEV
-  ? import.meta.env.VITE_BASE_URL
-  : window.location.origin;
+OpenAPI.BASE = window.location.origin;
 OpenAPI.WITH_CREDENTIALS = true;
 
 // Add response interceptor to handle token expiration (401/403)
