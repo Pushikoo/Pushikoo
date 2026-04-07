@@ -822,7 +822,7 @@ requires-dist = [
     { name = "itsdangerous", specifier = ">=2.2.0,<3.0.0" },
     { name = "loguru", specifier = ">=0.7.3,<0.8.0" },
     { name = "pillow", specifier = ">=12.0.0,<13.0.0" },
-    { name = "pushikoo-adapter-testgetter" },
+    { name = "pushikoo-adapter-testgetter", specifier = ">=0.2.0" },
     { name = "pushikoo-adapter-testprocesser" },
     { name = "pushikoo-adapter-testpusher" },
     { name = "pushikoo-interface", specifier = ">=1.1.0" },
@@ -850,16 +850,17 @@ dev = [
 
 [[package]]
 name = "pushikoo-adapter-testgetter"
-version = "0.1.1"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "fastapi" },
     { name = "loguru" },
     { name = "pushikoo-interface" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/a1/ac066a710947f97cd2f9d4602832cd155f8e9d5b7d2b20b6d9537de8b642/pushikoo_adapter_testgetter-0.1.1.tar.gz", hash = "sha256:314a1182eeeaa74f0239082fb490731fae29ea7cf7a9c16877b535f073b3a098", size = 49893, upload-time = "2025-12-13T16:24:54.165Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/63/9191559139bc08c8083277d4cdcd9740538e0514145291eb9c187c9f97a2/pushikoo_adapter_testgetter-0.2.0.tar.gz", hash = "sha256:31662f6d072440b8a73fbafca6357812f80e49b058722cb4759d4d6f0e31a0d2", size = 17635, upload-time = "2026-03-11T18:56:12.002Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/4c/5df09c72977b978be6e77ef862754bbe8eeb1e74d5187727e4199ea1b351/pushikoo_adapter_testgetter-0.1.1-py3-none-any.whl", hash = "sha256:ee7fd2e17921d637ac8bcce5a47b9cbadbeb4e23cb55984f92892f4712f697db", size = 17262, upload-time = "2025-12-13T16:24:52.914Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/b2/84d9203491f53819df59650f16f9c7c8f067450e4974795967c39681c3c1/pushikoo_adapter_testgetter-0.2.0-py3-none-any.whl", hash = "sha256:63c6781475cda7ea8c68f4a92e88063cb8d00bace14fd5f819bd7f04c76b2492", size = 17243, upload-time = "2026-03-11T18:56:10.575Z" },
 ]
 
 [[package]]

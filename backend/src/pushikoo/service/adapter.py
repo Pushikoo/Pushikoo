@@ -42,7 +42,7 @@ from pushikoo.service.base import (
     NotFoundException,
 )
 from pushikoo.service.config import ConfigService
-from pushikoo.util.setting import DATA_DIR
+from pushikoo.util.setting import DATA_DIR, settings
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
 adapter_container_app = FastAPI()
@@ -93,6 +93,8 @@ def _remove_instance_router(adapter_name: str, identifier: str) -> None:
 
 class AdapterFrameworkContext(AdapterFrameworkContextInterface):
     storage_base_path: Path = DATA_DIR / "adapters" / "storage"
+    adapter_base_url: str = ""
+    instance_base_url: str = ""
 
     def get_proxies(self) -> dict[str, str]:
         return ConfigService("system", SystemConfig).get().network.proxies
@@ -225,6 +227,10 @@ class AdapterService:
         ctx.get_instance_config = lambda: ConfigService(
             f"{name}.{identifier}", adapter_config_inst_type
         ).get()
+        ctx.adapter_base_url = f"{settings.BACKEND_BASE_HOST}/ext/adapters/{name}"
+        ctx.instance_base_url = (
+            f"{settings.BACKEND_BASE_HOST}/ext/adapter_instances/{name}.{identifier}"
+        )
         instance = obj.create(identifier=identifier, ctx=ctx)
         logger.debug(f"Created adapter instance: {name}.{identifier}")
         return instance

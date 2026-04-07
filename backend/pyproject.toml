@@ -31,7 +31,7 @@ dependencies = [
     "sqlmodel>=0.0.27,<0.0.28",
     "starlette>=0.50.0,<0.51.0",
     "uvicorn>=0.38.0,<0.39.0",
-    "pushikoo-adapter-testgetter",
+    "pushikoo-adapter-testgetter>=0.2.0",
     "pushikoo-adapter-testprocesser",
     "pushikoo-adapter-testpusher",
     "pushikoo-interface>=1.1.0",
