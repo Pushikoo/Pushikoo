@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/Pushikoo/Pushikoo/compare/v0.13.0...v0.13.1) (2026-04-07)
+
+
+### Miscellaneous Chores
+
+* **frontend:** upgrade pnpm to 10.33.0 ([94a30ff](https://github.com/Pushikoo/Pushikoo/commit/94a30ffd08aafe87e8b76bc6b8ddff98a66ce3f9))
+
 ## [0.13.0](https://github.com/Pushikoo/Pushikoo/compare/v0.12.0...v0.13.0) (2026-04-07)
 
 
