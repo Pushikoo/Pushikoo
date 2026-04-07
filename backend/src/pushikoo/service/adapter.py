@@ -121,6 +121,25 @@ class AdapterService:
                 sys.modules.pop(sys_module_name)
 
     @staticmethod
+    def _inject_class_context(cls: type[Adapter], adapter_name: str) -> None:
+        """Inject a class-level context into the adapter class"""
+        ctx = AdapterFrameworkContext()
+        ctx.adapter_base_url = (
+            f"{settings.BACKEND_BASE_HOST}/ext/adapters/{adapter_name}"
+        )
+        ctx.get_proxies = lambda: (
+            ConfigService("system", SystemConfig).get().network.proxies
+        )
+
+        adapter_config_type, _ = get_adapter_config_types(cls)
+        ctx.get_config = lambda: ConfigService(adapter_name, adapter_config_type).get()
+
+        cls.ctx = ctx
+        cls.adapter_name = adapter_name
+        cls.adapter_storage_path = ctx.storage_base_path / adapter_name
+        cls.adapter_storage_path.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
     def _force_load_adapter(entry_point: EntryPoint) -> type:
         """Force reload an adapter module and return its class.
 
@@ -166,6 +185,7 @@ class AdapterService:
                     logger.debug(f"Loading or reloading adapter {name}...")
                     try:
                         cls = AdapterService._force_load_adapter(ep)
+                        AdapterService._inject_class_context(cls, name)
                         AdapterService.adapters[name] = cls
                         AdapterService.adapter_versions[name] = ep.dist.version
                         AdapterService.adapter_metas[name] = getattr(cls, "meta", None)
