@@ -13,6 +13,7 @@ from pushikoo.util.setting import settings
 @pytest.fixture(autouse=True)
 def force_local_env(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "local")
+    monkeypatch.setattr(settings, "LOCAL_AUTH_DISABLED", True)
 
 
 @pytest.fixture()
