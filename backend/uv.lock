@@ -825,7 +825,7 @@ requires-dist = [
     { name = "pushikoo-adapter-testgetter", specifier = ">=0.2.0" },
     { name = "pushikoo-adapter-testprocesser" },
     { name = "pushikoo-adapter-testpusher" },
-    { name = "pushikoo-interface", specifier = ">=1.2.0" },
+    { name = "pushikoo-interface", specifier = ">=1.3.0" },
     { name = "pydantic", specifier = ">=2.12.4,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0,<3.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
@@ -893,15 +893,15 @@ wheels = [
 
 [[package]]
 name = "pushikoo-interface"
-version = "1.2.0"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a7/92/d5a72ba09caf4d985e5fb14a633efe71fdd98bd21c69ef40b292c6d0d7f7/pushikoo_interface-1.2.0.tar.gz", hash = "sha256:c8abbd661e32061102242842e853a5c64819583e5f7d13d093ac79fd7c6627ee", size = 21421, upload-time = "2026-04-07T06:01:50.234Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/0e/0997bf47566185f097adafc48c2e853fb8f22893bcf147afacc839f6869d/pushikoo_interface-1.3.0.tar.gz", hash = "sha256:8feaaa6fff974f48a404f475fd5d38d1dfe44ed5e9d7e454824bbc3c1ab71cf4", size = 21446, upload-time = "2026-04-07T08:51:51.722Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/8e/62ad51937df907d475152fcc13816c5d4785ec664443e1767cb1b2d6baa6/pushikoo_interface-1.2.0-py3-none-any.whl", hash = "sha256:89460f5cbc142a6792164600969053b32a6ee322940eeb8c47943de64dcddbc2", size = 21015, upload-time = "2026-04-07T06:01:49.104Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/06/ff61da34e3db81963bb321d45733b7afec9a5d1ca64b0a337956a22cb074/pushikoo_interface-1.3.0-py3-none-any.whl", hash = "sha256:e3a5c7daa590b090c9725930ebba0124b7b44f15c6068f2cb1566470c642747a", size = 20973, upload-time = "2026-04-07T08:51:50.167Z" },
 ]
 
 [[package]]
