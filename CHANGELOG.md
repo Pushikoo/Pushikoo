@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.2](https://github.com/Pushikoo/Pushikoo/compare/v0.13.1...v0.13.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* **ci:** specify package_json_file for pnpm action-setup ([ce47287](https://github.com/Pushikoo/Pushikoo/commit/ce472870d8841cde25b8bcb46a8aa42722ed8c0b))
+* **test:** set LOCAL_AUTH_DISABLED in test fixture to bypass auth ([69fd156](https://github.com/Pushikoo/Pushikoo/commit/69fd156316429eadb4a63762a332330f3b8f6b68))
+
 ## [0.13.1](https://github.com/Pushikoo/Pushikoo/compare/v0.13.0...v0.13.1) (2026-04-07)
 
 
