@@ -345,6 +345,11 @@ class AdapterInstanceService:
         for row in rows:
             try:
                 AdapterInstanceService.ensure_load_instance(row.id)
+            except NotFoundException:
+                logger.warning(
+                    f"Adapter '{row.adapter_name}' is not installed, "
+                    f"skipping instance '{row.identifier}'"
+                )
             except Exception:
                 logger.exception(
                     f"Failed to load instance {row.adapter_name}.{row.identifier}"
