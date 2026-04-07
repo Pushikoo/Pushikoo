@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     LOCAL_AUTH_DISABLED: bool = False
 
     ENVIRONMENT: Literal["local", "staging", "production"] = "production"
+
     # ------------------------------------------------------------------
     # Raw host values loaded from environment variables
     # These represent the *direct* values from .env (or default values),
@@ -101,7 +102,7 @@ class Settings(BaseSettings):
     @property
     def CORS_ORIGINS(self) -> list[str]:
         if self.ENVIRONMENT == "local":
-            return [self.FRONTEND_BASE_HOST]
+            return ["*"]
         return [str(origin).rstrip("/") for origin in self.raw_cors_origins] + [
             self.FRONTEND_BASE_HOST
         ]
