@@ -2,9 +2,26 @@
 import { defineStore } from "pinia";
 
 // API client
-import { OpenAPI, SystemService } from "@/client";
+import { SystemService } from "@/client";
 
-const TOKEN_STORAGE_KEY = "auth:token";
+const COOKIE_NAME = "access_token";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 8;
+
+function setCookie(value: string) {
+  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`;
+}
+
+function getCookie(): string | null {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`),
+  );
+  const value = match?.[1];
+  return value ? decodeURIComponent(value) : null;
+}
+
+export function deleteCookie() {
+  document.cookie = `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
@@ -19,11 +36,7 @@ export const useAuthStore = defineStore("auth", {
     initializeFromStorage() {
       if (typeof window === "undefined") return;
 
-      const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (storedToken) {
-        this.token = storedToken;
-        OpenAPI.TOKEN = storedToken;
-      }
+      this.token = getCookie();
     },
 
     setToken(token: string | null) {
@@ -31,17 +44,14 @@ export const useAuthStore = defineStore("auth", {
 
       if (typeof window !== "undefined") {
         if (token) {
-          localStorage.setItem(TOKEN_STORAGE_KEY, token);
+          setCookie(token);
         } else {
-          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          deleteCookie();
         }
       }
-
-      OpenAPI.TOKEN = token ?? undefined;
     },
 
     async loginWithToken(token: string) {
-      debugger;
       const trimmed = token.trim();
       if (!trimmed) {
         throw new Error("Token is empty");
