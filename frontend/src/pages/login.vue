@@ -75,11 +75,10 @@ meta:
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 
 const { t } = useI18n({ useScope: 'global', missing: (locale, key) => key })
-const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
@@ -96,9 +95,6 @@ onMounted(async () => {
     const queryToken = route.query.token
     if (typeof queryToken === 'string' && queryToken) {
       await handleTokenLogin(queryToken)
-
-      const { token: _, ...rest } = route.query
-      router.replace({ path: route.path, query: rest })
     }
   }
 })
@@ -115,8 +111,7 @@ const handleTokenLogin = async (rawToken?: string) => {
     await auth.loginWithToken(value)
 
     const redirectPath = (route.query.redirect as string) || '/'
-    await router.isReady()
-    await router.replace(redirectPath)
+    window.location.href = redirectPath
   } catch (err) {
     auth.logout()
 
@@ -130,7 +125,9 @@ const handleSubmit = () => handleTokenLogin()
 
 const handleSsoLogin = () => {
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
-  const ssoPath = '/api/v1/oauth/login'
+  const redirectPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
+  const query = redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''
+  const ssoPath = `/api/v1/oauth/login${query}`
   window.location.href = apiBase ? `${apiBase}${ssoPath}` : ssoPath
 }
 </script>

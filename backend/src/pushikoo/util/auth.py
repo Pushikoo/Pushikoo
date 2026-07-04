@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -12,6 +14,35 @@ COOKIE_NAME = "access_token"
 async def verify_token(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    return await _verify_token(request, credentials)
+
+
+async def verify_token_or_login_redirect(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    try:
+        return await _verify_token(request, credentials)
+    except HTTPException as exc:
+        if (
+            exc.status_code == status.HTTP_401_UNAUTHORIZED
+            and "text/html" in request.headers.get("accept", "")
+        ):
+            redirect_path = request.url.path
+            if request.url.query:
+                redirect_path = f"{redirect_path}?{request.url.query}"
+
+            raise HTTPException(
+                status_code=status.HTTP_302_FOUND,
+                headers={"Location": f"/login?redirect={quote(redirect_path, safe='')}"},
+            ) from exc
+        raise
+
+
+async def _verify_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
 ) -> str:
     if settings.ENVIRONMENT == "local" and settings.LOCAL_AUTH_DISABLED:
         return "whatever"

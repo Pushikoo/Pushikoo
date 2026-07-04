@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -7,6 +9,13 @@ from pushikoo.util.setting import settings
 
 router = APIRouter(prefix="/v1/oauth", tags=["oauth_v1"])
 _oauth: OAuth | None = None
+SSO_REDIRECT_SESSION_KEY = "sso_redirect"
+
+
+def _safe_redirect_path(value: str | None) -> str | None:
+    if not value or not value.startswith("/") or value.startswith("//"):
+        return None
+    return value
 
 
 def _get_oauth() -> OAuth:
@@ -37,6 +46,10 @@ async def sso_login(request: Request):
     client = oauth.create_client("sso")
     if client is None:
         raise HTTPException(status_code=503, detail="SSO client init failed")
+
+    redirect_path = _safe_redirect_path(request.query_params.get("redirect"))
+    if redirect_path:
+        request.session[SSO_REDIRECT_SESSION_KEY] = redirect_path
 
     sso_redirect_url = "{}/api/v1/oauth/callback".format(
         settings.BASE_HOST.rstrip("/")
@@ -82,5 +95,10 @@ async def sso_callback(request: Request):
 
     access_token = create_access_token({"sub": identifier, "email": email or ""})
 
-    redirect_url = f"{settings.BASE_HOST}/login?token={access_token}"
+    login_query = {"token": access_token}
+    redirect_path = _safe_redirect_path(request.session.pop(SSO_REDIRECT_SESSION_KEY, None))
+    if redirect_path:
+        login_query["redirect"] = redirect_path
+
+    redirect_url = f"{settings.BASE_HOST}/login?{urlencode(login_query)}"
     return RedirectResponse(url=redirect_url)
