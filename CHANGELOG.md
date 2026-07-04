@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/Pushikoo/Pushikoo/compare/v0.13.2...v0.14.0) (2026-07-04)
+
+
+### Features
+
+* **login:** add mobile responsive layout for login page ([4cb353c](https://github.com/Pushikoo/Pushikoo/commit/4cb353c15c36d3830fbea53ae18640a2c97ce4f1))
+
 ## [0.13.2](https://github.com/Pushikoo/Pushikoo/compare/v0.13.1...v0.13.2) (2026-04-07)
 
 
