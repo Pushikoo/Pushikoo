@@ -10,9 +10,9 @@ meta:
 
         <v-card max-width="1100" width="100%" class="mx-0 mx-md-4 overflow-hidden login-card"
           :rounded="$vuetify.display.mdAndUp ? 'xl' : '0'">
-          <v-row no-gutters class="fill-height">
+          <v-row no-gutters class="fill-height login-row">
 
-            <v-col cols="12" md="6" class="bg-primary position-relative d-flex align-center">
+            <v-col cols="12" md="6" class="bg-primary position-relative d-flex align-center login-header-col">
               <v-img cover class="fill-height h-100"
                 gradient="to bottom right, rgba(var(--v-theme-primary), .85), rgba(var(--v-theme-primary), .5)"
                 style="min-height: 150px;">
@@ -22,8 +22,8 @@ meta:
               </v-img>
             </v-col>
 
-            <v-col cols="12" md="6" class="bg-white text-black">
-              <div class="pa-8 pa-sm-12 py-sm-16 d-flex align-center fill-height">
+            <v-col cols="12" md="6" class="bg-white text-black login-form-col">
+              <div class="pa-8 pa-sm-12 py-sm-16 d-flex align-center fill-height login-form-content">
                 <div class="w-100">
                   <div class="mb-8">
                     <h3 class="text-h4 font-weight-bold text-primary mb-2">
@@ -144,6 +144,32 @@ const handleSsoLogin = () => {
 @media (min-width: 960px) {
   .login-card {
     border: 1px solid rgb(var(--v-theme-primary)) !important;
+  }
+}
+
+@media (max-width: 959.98px) {
+  .login-card {
+    height: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+  .login-row {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    height: 100% !important;
+  }
+  .login-header-col {
+    flex: 0 0 auto !important;
+    min-height: 200px !important;
+  }
+  .login-form-col {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+  }
+  .login-form-content {
+    align-items: flex-start !important;
+    padding-top: 24px !important;
   }
 }
 </style>
