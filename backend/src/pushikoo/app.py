@@ -1,5 +1,9 @@
 import os
+import re
+import sqlite3
 import sys
+from contextlib import closing, suppress
+from datetime import datetime, timezone
 from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Optional
@@ -7,7 +11,10 @@ from typing import Optional
 import uvicorn
 from alembic import command
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from loguru import logger
+from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
 
 from pushikoo.api import app
@@ -15,7 +22,7 @@ from pushikoo.db import engine as app_engine
 from pushikoo.service.adapter import AdapterInstanceService, AdapterService
 from pushikoo.service.refresh import CronService, FlowInstanceService
 from pushikoo.util.env import is_running_from_source
-from pushikoo.util.setting import settings
+from pushikoo.util.setting import DATA_DIR, settings
 
 
 def _get_version() -> str | None:
@@ -58,12 +65,95 @@ def _activate_venv() -> None:
     os.environ["VIRTUAL_ENV"] = str(venv_root)
 
 
+_MIGRATION_BACKUP_PATTERN = re.compile(
+    r"^pushikoo-\d{8}T\d{12}Z-[A-Za-z0-9_.-]+\.db$"
+)
+
+
+def _backup_sqlite_database(
+    database_path: Path, current_revision: str | None, head_revision: str
+) -> Path:
+    backup_dir = DATA_DIR / "backup"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    revision = current_revision or "none"
+    backup_path = backup_dir / f"pushikoo-{timestamp}-{revision}.db"
+    backup_complete = False
+
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        with (
+            closing(sqlite3.connect(database_path)) as source,
+            closing(sqlite3.connect(backup_path)) as destination,
+        ):
+            source.backup(destination)
+        backup_complete = True
+
+        backups = sorted(
+            (
+                path
+                for path in backup_dir.iterdir()
+                if path.is_file()
+                and _MIGRATION_BACKUP_PATTERN.fullmatch(path.name)
+            ),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+        for old_backup in backups[5:]:
+            old_backup.unlink()
+    except Exception:
+        if not backup_complete:
+            with suppress(OSError):
+                backup_path.unlink(missing_ok=True)
+        logger.exception(
+            "Failed to prepare SQLite backup before migration {} -> {}: {}",
+            revision,
+            head_revision,
+            backup_path,
+        )
+        raise
+
+    logger.info(
+        "Backed up SQLite database before migration {} -> {}: {}",
+        revision,
+        head_revision,
+        backup_path,
+    )
+    return backup_path
+
+
 def db_upgrade_to_head(engine: Optional[Engine] = None) -> None:
     eng = engine or app_engine
     cfg = Config()
     scripts = files("pushikoo") / "alembic"
     with as_file(scripts) as script_path:
         cfg.set_main_option("script_location", str(script_path))
+        script_directory = ScriptDirectory.from_config(cfg)
+        head_revision = script_directory.get_current_head()
+
+        database = eng.url.database
+        is_memory_database = database in (None, "", ":memory:") or (
+            isinstance(database, str) and "mode=memory" in database
+        )
+        database_path = Path(database) if database and not is_memory_database else None
+        database_existed = database_path is not None and database_path.is_file()
+
+        with eng.connect() as connection:
+            migration_context = MigrationContext.configure(connection)
+            current_revision = migration_context.get_current_revision()
+            has_tables = bool(inspect(connection).get_table_names())
+
+        has_pending_migrations = current_revision is None or any(
+            script_directory.iterate_revisions(head_revision, current_revision)
+        )
+        if (
+            eng.dialect.name == "sqlite"
+            and database_existed
+            and database_path is not None
+            and has_pending_migrations
+            and (current_revision is not None or has_tables)
+        ):
+            _backup_sqlite_database(database_path, current_revision, head_revision)
+
         with eng.connect() as connection:
             cfg.attributes["connection"] = connection
             command.upgrade(cfg, "head")

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -30,14 +32,18 @@ def test_set_and_overwrite_and_delete():
     assert service.delete() is False
 
 
-def test_invalid_db_data_falls_back_to_default(in_memory_engine):
+def test_invalid_db_data_recovers_without_deleting(in_memory_engine):
+    original = {"value": "preserved", "count": "bad"}
     with Session(in_memory_engine) as session:
-        session.add(ConfigDB(key="dummy", value={"count": "bad"}))
+        session.add(ConfigDB(key="dummy", value=original))
         session.commit()
 
     service = ConfigService("dummy", DummyConfig)
 
-    assert service.get() == DummyConfig()
+    with patch("pushikoo.service.warning.WarningService.issue") as issue:
+        assert service.get() == DummyConfig(value="preserved", count=0)
+        assert service.get() == DummyConfig(value="preserved", count=0)
+        issue.assert_called_once()
 
     with Session(in_memory_engine) as session:
-        assert session.get(ConfigDB, "dummy") is None
+        assert session.get(ConfigDB, "dummy").value == original

@@ -41,6 +41,7 @@ def patched_db(in_memory_engine, monkeypatch):
 @pytest.fixture(autouse=True)
 def reset_shared_state():
     ConfigService._locks.clear()
+    ConfigService._warned_invalid_keys.clear()
     AdapterService.adapters.clear()
     AdapterService.adapter_versions.clear()
     AdapterService.adapter_metas.clear()
@@ -50,6 +51,7 @@ def reset_shared_state():
     PIPService._uv_available = None
     yield
     ConfigService._locks.clear()
+    ConfigService._warned_invalid_keys.clear()
     AdapterService.adapters.clear()
     AdapterService.adapter_versions.clear()
     AdapterService.adapter_metas.clear()
