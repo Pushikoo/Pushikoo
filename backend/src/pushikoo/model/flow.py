@@ -52,7 +52,16 @@ class FlowInstance(BaseModel):
     id: UUID
     flow_id: UUID
     status: FlowInstanceStatus
+    nodes: list[UUID]
+    cursor: int
     created_at: datetime
+
+
+class FlowItemStatus(StrEnum):
+    PENDING = "pending"
+    DONE = "done"
+    DROPPED = "dropped"
+    FAILED = "failed"
 
 
 class FlowExecuteRequest(BaseModel):
@@ -89,5 +98,7 @@ class FlowInstanceDetail(BaseModel):
     id: UUID
     flow_id: UUID
     status: FlowInstanceStatus
+    nodes: list[UUID]
+    cursor: int
     created_at: datetime
     node_executions: list[FlowNodeExecution]

@@ -77,6 +77,8 @@ export type FlowInstance = {
     id: string;
     flow_id: string;
     status: FlowInstanceStatus;
+    nodes: Array<(string)>;
+    cursor: number;
     created_at: string;
 };
 
@@ -87,6 +89,8 @@ export type FlowInstanceDetail = {
     id: string;
     flow_id: string;
     status: FlowInstanceStatus;
+    nodes: Array<(string)>;
+    cursor: number;
     created_at: string;
     node_executions: Array<FlowNodeExecution>;
 };

@@ -92,6 +92,8 @@ def get_flow_instance_detail(instance_id: UUID) -> FlowInstanceDetail:
         id=instance.id,
         flow_id=instance.flow_id,
         status=instance.status,
+        nodes=instance.nodes,
+        cursor=instance.cursor,
         created_at=instance.created_at,
         node_executions=node_executions,
     )

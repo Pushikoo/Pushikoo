@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, UniqueConstraint, event
 from sqlalchemy_utc import UtcDateTime
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
@@ -14,6 +14,16 @@ DB_PATH = DATA_DIR / "pushikoo.db"
 engine = create_engine(
     f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False}
 )
+
+
+@event.listens_for(engine, "connect")
+def _configure_sqlite(dbapi_connection, connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+    finally:
+        cursor.close()
 
 
 def get_session() -> Session:
@@ -57,6 +67,10 @@ class FlowInstance(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     flow_id: uuid.UUID = Field(foreign_key="flow.id")
     status: str
+    nodes: list[str] = Field(
+        default_factory=list, sa_column=Column(JSONField, nullable=False)
+    )
+    cursor: int = 0
     created_at: datetime.datetime = Field(
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
         sa_column=Column(UtcDateTime()),
@@ -96,6 +110,38 @@ class Message(SQLModel, table=True):
     getter_name: str
     ts: float
     content: dict = Field(sa_column=Column(JSON))
+
+
+class FlowMessage(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("flow_id", "message_id", name="uix_flow_message"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    flow_id: uuid.UUID = Field(foreign_key="flow.id")
+    message_id: uuid.UUID = Field(foreign_key="message.id")
+    created_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+
+
+class FlowItem(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    flow_instance_id: uuid.UUID = Field(foreign_key="flowinstance.id")
+    message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="message.id")
+    content: dict = Field(sa_column=Column(JSON, nullable=False))
+    cursor: int
+    status: str
+    last_error: Optional[str] = None
+    created_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+    updated_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
 
 
 class Config(SQLModel, table=True):
@@ -146,6 +192,8 @@ __all__ = [
     "FlowCron",
     "FlowInstance",
     "FlowNodeExecution",
+    "FlowItem",
+    "FlowMessage",
     # message
     "Message",
     # config/files

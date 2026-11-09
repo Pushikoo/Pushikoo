@@ -300,6 +300,18 @@ export const FlowInstanceSchema = {
         status: {
             '$ref': '#/components/schemas/FlowInstanceStatus'
         },
+        nodes: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Nodes'
+        },
+        cursor: {
+            type: 'integer',
+            title: 'Cursor'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -307,7 +319,7 @@ export const FlowInstanceSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'flow_id', 'status', 'created_at'],
+    required: ['id', 'flow_id', 'status', 'nodes', 'cursor', 'created_at'],
     title: 'FlowInstance'
 } as const;
 
@@ -326,6 +338,18 @@ export const FlowInstanceDetailSchema = {
         status: {
             '$ref': '#/components/schemas/FlowInstanceStatus'
         },
+        nodes: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Nodes'
+        },
+        cursor: {
+            type: 'integer',
+            title: 'Cursor'
+        },
         created_at: {
             type: 'string',
             format: 'date-time',
@@ -340,7 +364,7 @@ export const FlowInstanceDetailSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'flow_id', 'status', 'created_at', 'node_executions'],
+    required: ['id', 'flow_id', 'status', 'nodes', 'cursor', 'created_at', 'node_executions'],
     title: 'FlowInstanceDetail',
     description: 'FlowInstance with execution details for each node.'
 } as const;

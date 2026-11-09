@@ -13,7 +13,7 @@ from sqlalchemy.engine import Engine
 from pushikoo.api import app
 from pushikoo.db import engine as app_engine
 from pushikoo.service.adapter import AdapterInstanceService, AdapterService
-from pushikoo.service.refresh import CronService
+from pushikoo.service.refresh import CronService, FlowInstanceService
 from pushikoo.util.env import is_running_from_source
 from pushikoo.util.setting import settings
 
@@ -109,6 +109,7 @@ def main() -> None:
     db_upgrade_to_head()
     AdapterService.ensure_load_adapter()
     AdapterInstanceService.ensure_load_all_instances()
+    FlowInstanceService.recover()
     CronService.init()
 
     uvicorn.run(app, host=settings.API_HOST, port=settings.API_PORT)

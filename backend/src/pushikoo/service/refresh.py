@@ -18,14 +18,18 @@ from pushikoo_interface import (
     StructText,
     TerminateFlowException,
 )
-from sqlalchemy import delete
+from sqlalchemy import delete, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import func, select
 
 from pushikoo.db import AdapterInstance as AdapterInstanceDB
 from pushikoo.db import Flow as FlowDB
 from pushikoo.db import FlowCron as FlowCronDB
 from pushikoo.db import FlowInstance as FlowInstanceDB
+from pushikoo.db import FlowItem as FlowItemDB
+from pushikoo.db import FlowMessage as FlowMessageDB
 from pushikoo.db import FlowNodeExecution as FlowNodeExecutionDB
+from pushikoo.db import Message as MessageDB
 from pushikoo.db import get_session
 from pushikoo.model.config import SystemConfig
 from pushikoo.model.cron import Cron, CronCreate, CronListFilter, CronUpdate
@@ -35,13 +39,13 @@ from pushikoo.model.flow import (
     FlowInstanceListFilter,
     FlowInstanceOrder,
     FlowInstanceStatus,
+    FlowItemStatus,
     FlowListFilter,
     FlowUpdate,
 )
 from pushikoo.model.flow import (
     FlowInstance as FlowInstanceModel,
 )
-from pushikoo.model.message import MessageCreate, MessageListFilter
 from pushikoo.model.pagination import Page, apply_page_limit
 from pushikoo.service.adapter import AdapterInstanceService
 from pushikoo.service.config import ConfigService
@@ -187,6 +191,9 @@ class FlowService:
             for cron in flow_crons:
                 session.delete(cron)
 
+            session.execute(
+                delete(FlowMessageDB).where(FlowMessageDB.flow_id == flow_id)
+            )
             session.delete(flow_db)
             session.commit()
 
@@ -203,15 +210,26 @@ class FlowInstanceService:
             id=instance_db.id,
             flow_id=instance_db.flow_id,
             status=FlowInstanceStatus(instance_db.status),
+            nodes=list(instance_db.nodes or []),
+            cursor=instance_db.cursor,
             created_at=instance_db.created_at,
         )
 
     @staticmethod
     def create(
-        flow_id: UUID, status: FlowInstanceStatus = FlowInstanceStatus.WAITING
+        flow_id: UUID,
+        nodes: list[str] | None = None,
+        status: FlowInstanceStatus = FlowInstanceStatus.WAITING,
     ) -> FlowInstanceModel:
         with get_session() as session:
-            instance_db = FlowInstanceDB(flow_id=flow_id, status=status.value)
+            if nodes is None:
+                flow_db = session.get(FlowDB, flow_id)
+                if not flow_db:
+                    raise NotFoundException(f"Flow not found: {flow_id}")
+                nodes = list(flow_db.nodes or [])
+            instance_db = FlowInstanceDB(
+                flow_id=flow_id, status=status.value, nodes=nodes, cursor=0
+            )
             session.add(instance_db)
             session.commit()
             session.refresh(instance_db)
@@ -287,14 +305,62 @@ class FlowInstanceService:
 
     @staticmethod
     def prune(seconds: int) -> int:
-        """Delete FlowInstance records older than *seconds*."""
-        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=seconds)
+        """Delete old flow items and then their FlowInstance records."""
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=seconds
+        )
         with get_session() as session:
+            old_ids = select(FlowInstanceDB.id).where(
+                FlowInstanceDB.created_at < cutoff
+            )
+            session.execute(
+                delete(FlowItemDB).where(
+                    FlowItemDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
+                )
+            )
             result = session.execute(
                 delete(FlowInstanceDB).where(FlowInstanceDB.created_at < cutoff)
             )
             session.commit()
             return result.rowcount  # type: ignore[return-value]
+
+    @staticmethod
+    def recover() -> int:
+        """Resume instances interrupted while waiting or running."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            rows = session.exec(
+                select(FlowInstanceDB).where(
+                    FlowInstanceDB.status.in_(  # type: ignore[union-attr]
+                        [
+                            FlowInstanceStatus.RUNNING.value,
+                            FlowInstanceStatus.WAITING.value,
+                        ]
+                    )
+                )
+            ).all()
+            instance_ids = [row.id for row in rows]
+            if instance_ids:
+                session.execute(
+                    update(FlowNodeExecutionDB)
+                    .where(
+                        FlowNodeExecutionDB.flow_instance_id.in_(instance_ids),
+                        FlowNodeExecutionDB.status == "running",
+                    )
+                    .values(
+                        status="failed",
+                        error_message="interrupted",
+                        finished_at=now,
+                    )
+                )
+                session.commit()
+
+        for instance_id in instance_ids:
+            try:
+                FlowInstanceRunner.resume(instance_id).do()
+            except Exception:
+                logger.exception(f"Failed to resume flow instance {instance_id}")
+        return len(instance_ids)
 
 
 class FlowNodeExecutionService:
@@ -303,9 +369,18 @@ class FlowNodeExecutionService:
     @staticmethod
     def prune(seconds: int) -> int:
         """Delete FlowNodeExecution records whose FlowInstance is older than *seconds*."""
-        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=seconds)
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=seconds
+        )
         with get_session() as session:
-            old_ids = select(FlowInstanceDB.id).where(FlowInstanceDB.created_at < cutoff)
+            old_ids = select(FlowInstanceDB.id).where(
+                FlowInstanceDB.created_at < cutoff
+            )
+            session.execute(
+                delete(FlowItemDB).where(
+                    FlowItemDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
+                )
+            )
             result = session.execute(
                 delete(FlowNodeExecutionDB).where(
                     FlowNodeExecutionDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
@@ -395,396 +470,642 @@ class FlowNodeExecutionService:
 
 
 class FlowInstanceRunner:
-    """Pipeline-based flow runner that executes nodes sequentially.
-
-    Nodes can be Getter, Processer, or Pusher in any order.
-    Data flows through content_list which is modified by each node type:
-    - Getter: appends new content to content_list
-    - Processer: processes each item in content_list and replaces
-    - Pusher: pushes each item in content_list and clears it
-    """
+    """Persistent, resumable pipeline runner."""
 
     ATTEMPT_COUNT = 3
 
-    def __init__(self, flow_id: UUID, include_nodes: list[UUID] | None = None):
-        self.flow_id = flow_id
-        self.include_nodes = (
-            set(str(n) for n in include_nodes) if include_nodes is not None else None
-        )
+    def __init__(
+        self,
+        flow_id: UUID | None = None,
+        include_nodes: list[UUID] | None = None,
+        *,
+        instance_id: UUID | None = None,
+    ):
+        if (flow_id is None) == (instance_id is None):
+            raise InvalidInputException("Provide exactly one of flow_id or instance_id")
 
-        with get_session() as session:
-            flow_db = session.exec(select(FlowDB).where(FlowDB.id == flow_id)).first()
-            if not flow_db:
-                raise NotFoundException(f"Flow not found: {flow_id}")
-            if not flow_db.nodes:
-                raise InvalidInputException(f"Flow has no nodes: {flow_id}")
-
-            # Filter to only included nodes (None = include all)
-            all_nodes = list(flow_db.nodes or [])
-            if self.include_nodes is not None:
-                self.flow_nodes = [n for n in all_nodes if n in self.include_nodes]
-            else:
-                self.flow_nodes = all_nodes
-
-            if self.include_nodes is not None:
-                logger.info(
-                    f"Flow {flow_id} executing with {len(self.include_nodes)} included nodes"
-                )
-
-        self.id = uuid.uuid4()
-        self.flow_instance_id: UUID | None = None
+        self.flow_instance_id = instance_id
         self.current_processing_adapter_inst: str | None = None
         self._thread: threading.Thread | None = None
 
-    def _issue_warning(self, warning_text: str):
-        WarningService.issue(Struct(content=[StructText(text=warning_text)]))
+        if instance_id is not None:
+            with get_session() as session:
+                instance = session.get(FlowInstanceDB, instance_id)
+                if not instance:
+                    raise NotFoundException(f"Flow instance not found: {instance_id}")
+                self.flow_id = instance.flow_id
+                self.flow_nodes = list(instance.nodes or [])
+            return
 
-    def _execute_getter(self, getter: Getter) -> list[Struct]:
-        """Execute Getter: timeline → filter existing → detail(s) → create messages → return content list."""
-        getter_full_name = f"{getter.adapter_name}.{getter.identifier}"
-        result: list[Struct] = []
-
-        # Get timeline with continuous failure tracking
-        try:
-            newest_list = getter.timeline()
-        except Exception as ex:
-            self._track_getter_timeline_failure(getter, ex)
-            raise
-
-        # Reset failure counter on success
-        key = (getter.adapter_name, getter.identifier)
-        getter_get_timeline_continuous_failed_times[key] = 0
-
-        # Filter out already existing messages
-        for message_id in newest_list.copy():
-            if MessageService.list(
-                MessageListFilter(
-                    message_identifier=message_id,
-                    getter_name=getter.adapter_name,
-                )
-            ).items:
-                newest_list.remove(message_id)
-
-        if not newest_list:
-            logger.debug(f"No new messages for {getter_full_name}")
-            return result
-
-        logger.info(f"New messages for {getter_full_name}: {newest_list}")
-
-        if ConfigService("system", SystemConfig).get().policy.perf_merged_details:
-            # Try batch details() first
-            try:
-                detail = getter.details(newest_list)
-                for message_id in newest_list:
-                    content = self._create_and_save_message(getter, detail, message_id)
-                result.append(content)  # details() only appends one Struct
-                return result
-            except NotImplementedError:
-                pass
-            except Exception as e:
-                logger.exception(
-                    f"Getter {getter_full_name} details() failed, falling back to detail(): {e}"
-                )
-
-        # Fall back to individual detail() calls using thread pool for concurrency
-        def fetch_detail_with_retry(message_id: str) -> Struct | None:
-            """Fetch detail for a single message with retry logic."""
-            for attempt in range(1, self.ATTEMPT_COUNT + 1):
-                try:
-                    detail = getter.detail(message_id)
-                    content = self._create_and_save_message(getter, detail, message_id)
-                    return content
-                except Exception as e:
-                    if attempt == self.ATTEMPT_COUNT:
-                        warning_text = (
-                            f"Getter '{getter_full_name}' failed to fetch details for "
-                            f"identifier {message_id} after {self.ATTEMPT_COUNT} attempts."
-                        )
-                        self._issue_warning(warning_text)
-                        logger.exception(f"Failed to get detail for {message_id}: {e}")
-                    else:
-                        logger.warning(f"Getter detail() attempt {attempt} failed: {e}")
-            return None
-
-        # Use thread pool with max 5 workers for concurrent detail fetching
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(fetch_detail_with_retry, msg_id): msg_id
-                for msg_id in newest_list
-            }
-            for future in as_completed(futures):
-                content = future.result()
-                if content is not None:
-                    result.append(content)
-
-        return result
-
-    def _create_and_save_message(
-        self, getter: Getter, detail: Detail, message_identifier: str
-    ) -> Struct:
-        """Create message content from detail and save to database."""
-        message_content = MessageService.Template.v1(detail)
-        # Process all images through ImageService
-        self._process_struct_images(message_content)
-        MessageService.create(
-            MessageCreate(
-                message_identifier=message_identifier,
-                getter_name=getter.adapter_name,
-                ts=detail.ts,
-                content=message_content,
-            )
+        self.flow_id = flow_id
+        included = (
+            {str(node_id) for node_id in include_nodes}
+            if include_nodes is not None
+            else None
         )
-        return message_content
+        with get_session() as session:
+            flow = session.get(FlowDB, flow_id)
+            if not flow:
+                raise NotFoundException(f"Flow not found: {flow_id}")
+            all_nodes = [str(node) for node in (flow.nodes or [])]
+        self.flow_nodes = (
+            [node for node in all_nodes if node in included]
+            if included is not None
+            else all_nodes
+        )
+        if not self.flow_nodes:
+            raise InvalidInputException(f"Flow has no selected nodes: {flow_id}")
+
+    @classmethod
+    def resume(cls, instance_id: UUID) -> "FlowInstanceRunner":
+        return cls(instance_id=instance_id)
+
+    def _issue_warning(self, warning_text: str) -> None:
+        try:
+            WarningService.issue(Struct(content=[StructText(text=warning_text)]))
+        except Exception:
+            logger.exception("Failed to issue flow warning")
 
     def _process_struct_images(self, struct: Struct) -> None:
-        """Process all StructImage items in a Struct, replacing their source with ImageService URLs."""
         if not struct or not struct.content:
             return
         for item in struct.content:
             if isinstance(item, StructImage) and item.source:
                 item.source = ImageService.create(item.source)
 
-    def _track_getter_timeline_failure(self, getter: Getter, ex: Exception):
-        """Track consecutive timeline failures and issue warnings at thresholds."""
+    def _track_getter_timeline_failure(self, getter: Getter, ex: Exception) -> None:
         key = (getter.adapter_name, getter.identifier)
-        if key not in getter_get_timeline_continuous_failed_times:
-            getter_get_timeline_continuous_failed_times[key] = 0
-        getter_get_timeline_continuous_failed_times[key] += 1
-
-        warning_attempt_count = (
+        attempt_count = getter_get_timeline_continuous_failed_times.get(key, 0) + 1
+        getter_get_timeline_continuous_failed_times[key] = attempt_count
+        warning_counts = (
             ConfigService("system", SystemConfig).get().policy.attempt.getter_timeline
         )
-        attempt_count = getter_get_timeline_continuous_failed_times[key]
-
-        if attempt_count in warning_attempt_count:
-            getter_full_name = f"{getter.adapter_name}.{getter.identifier}"
-            warning_text = (
-                f"Getter '{getter_full_name}' failed to fetch timeline as its "
-                f"consecutive failures exceeded {attempt_count} times. "
-                f"Latest exception: {str(ex)}"
+        if attempt_count in warning_counts:
+            self._issue_warning(
+                f"Getter '{getter.adapter_name}.{getter.identifier}' failed to fetch "
+                f"timeline as its consecutive failures exceeded {attempt_count} times. "
+                f"Latest exception: {ex}"
             )
-            self._issue_warning(warning_text)
 
-        logger.warning(
-            f"Failed to get timeline for {getter.adapter_name}.{getter.identifier}: {ex}"
+    def _pending_items(self, node_index: int) -> list[FlowItemDB]:
+        with get_session() as session:
+            return list(
+                session.exec(
+                    select(FlowItemDB)
+                    .where(
+                        FlowItemDB.flow_instance_id == self.flow_instance_id,
+                        FlowItemDB.cursor == node_index,
+                        FlowItemDB.status == FlowItemStatus.PENDING.value,
+                    )
+                    .order_by(FlowItemDB.created_at, FlowItemDB.id)
+                ).all()
+            )
+
+    def _advance_items(self, node_index: int) -> int:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            result = session.execute(
+                update(FlowItemDB)
+                .where(
+                    FlowItemDB.flow_instance_id == self.flow_instance_id,
+                    FlowItemDB.cursor == node_index,
+                    FlowItemDB.status == FlowItemStatus.PENDING.value,
+                )
+                .values(cursor=node_index + 1, updated_at=now)
+            )
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]
+
+    def _set_items_failed(self, node_index: int, error: str) -> int:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            result = session.execute(
+                update(FlowItemDB)
+                .where(
+                    FlowItemDB.flow_instance_id == self.flow_instance_id,
+                    FlowItemDB.cursor == node_index,
+                    FlowItemDB.status == FlowItemStatus.PENDING.value,
+                )
+                .values(
+                    status=FlowItemStatus.FAILED.value,
+                    last_error=error,
+                    updated_at=now,
+                )
+            )
+            session.commit()
+            return result.rowcount  # type: ignore[return-value]
+
+    def _unclaimed_identifiers(
+        self, getter_name: str, identifiers: list[str]
+    ) -> list[str]:
+        identifiers = list(dict.fromkeys(identifiers))
+        if not identifiers:
+            return []
+        with get_session() as session:
+            claimed = set(
+                session.exec(
+                    select(MessageDB.message_identifier)
+                    .join(FlowMessageDB, FlowMessageDB.message_id == MessageDB.id)
+                    .where(
+                        FlowMessageDB.flow_id == self.flow_id,
+                        MessageDB.getter_name == getter_name,
+                        MessageDB.message_identifier.in_(identifiers),
+                    )
+                ).all()
+            )
+        return [identifier for identifier in identifiers if identifier not in claimed]
+
+    def _cached_message(self, getter_name: str, identifier: str) -> MessageDB | None:
+        with get_session() as session:
+            return session.exec(
+                select(MessageDB).where(
+                    MessageDB.getter_name == getter_name,
+                    MessageDB.message_identifier == identifier,
+                )
+            ).first()
+
+    def _cache_and_claim(
+        self,
+        getter_name: str,
+        identifier: str,
+        node_index: int,
+        *,
+        detail: Detail | None = None,
+    ) -> bool:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            message = session.exec(
+                select(MessageDB).where(
+                    MessageDB.getter_name == getter_name,
+                    MessageDB.message_identifier == identifier,
+                )
+            ).first()
+            if message is None:
+                if detail is None:
+                    raise RuntimeError("detail is required for an uncached message")
+                content = MessageService.Template.v1(detail)
+                self._process_struct_images(content)
+                session.execute(
+                    sqlite_insert(MessageDB)
+                    .values(
+                        id=uuid.uuid4(),
+                        message_identifier=identifier,
+                        getter_name=getter_name,
+                        ts=detail.ts,
+                        content=content.model_dump(),
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=["message_identifier", "getter_name"]
+                    )
+                )
+                message = session.exec(
+                    select(MessageDB).where(
+                        MessageDB.getter_name == getter_name,
+                        MessageDB.message_identifier == identifier,
+                    )
+                ).one()
+
+            claim_id = session.execute(
+                sqlite_insert(FlowMessageDB)
+                .values(
+                    id=uuid.uuid4(),
+                    flow_id=self.flow_id,
+                    message_id=message.id,
+                    created_at=now,
+                )
+                .on_conflict_do_nothing(index_elements=["flow_id", "message_id"])
+                .returning(FlowMessageDB.id)
+            ).scalar_one_or_none()
+            if claim_id is None:
+                session.rollback()
+                return False
+
+            session.add(
+                FlowItemDB(
+                    flow_instance_id=self.flow_instance_id,
+                    message_id=message.id,
+                    content=message.content,
+                    cursor=node_index + 1,
+                    status=FlowItemStatus.PENDING.value,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            session.commit()
+            return True
+
+    def _cache_and_claim_merged(
+        self,
+        getter_name: str,
+        identifiers: list[str],
+        detail: Detail,
+        node_index: int,
+    ) -> bool:
+        content = MessageService.Template.v1(detail)
+        self._process_struct_images(content)
+        content_data = content.model_dump()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        claimed_message_ids: list[UUID] = []
+
+        with get_session() as session:
+            for identifier in identifiers:
+                session.execute(
+                    sqlite_insert(MessageDB)
+                    .values(
+                        id=uuid.uuid4(),
+                        message_identifier=identifier,
+                        getter_name=getter_name,
+                        ts=detail.ts,
+                        content=content_data,
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=["message_identifier", "getter_name"]
+                    )
+                )
+                message = session.exec(
+                    select(MessageDB).where(
+                        MessageDB.getter_name == getter_name,
+                        MessageDB.message_identifier == identifier,
+                    )
+                ).one()
+                claim_id = session.execute(
+                    sqlite_insert(FlowMessageDB)
+                    .values(
+                        id=uuid.uuid4(),
+                        flow_id=self.flow_id,
+                        message_id=message.id,
+                        created_at=now,
+                    )
+                    .on_conflict_do_nothing(index_elements=["flow_id", "message_id"])
+                    .returning(FlowMessageDB.id)
+                ).scalar_one_or_none()
+                if claim_id is not None:
+                    claimed_message_ids.append(message.id)
+
+            if not claimed_message_ids:
+                session.rollback()
+                return False
+            session.add(
+                FlowItemDB(
+                    flow_instance_id=self.flow_instance_id,
+                    message_id=claimed_message_ids[0],
+                    content=content_data,
+                    cursor=node_index + 1,
+                    status=FlowItemStatus.PENDING.value,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            session.commit()
+        return True
+
+    def _execute_getter(self, getter: Getter, node_index: int) -> int:
+        getter_name = getter.adapter_name
+        getter_full_name = f"{getter.adapter_name}.{getter.identifier}"
+        try:
+            identifiers = self._unclaimed_identifiers(getter_name, getter.timeline())
+        except Exception as ex:
+            self._track_getter_timeline_failure(getter, ex)
+            raise
+
+        getter_get_timeline_continuous_failed_times[
+            (getter.adapter_name, getter.identifier)
+        ] = 0
+        if not identifiers:
+            return 0
+
+        cached = [
+            identifier
+            for identifier in identifiers
+            if self._cached_message(getter_name, identifier) is not None
+        ]
+        claimed = sum(
+            int(self._cache_and_claim(getter_name, identifier, node_index))
+            for identifier in cached
         )
+        uncached = [
+            identifier for identifier in identifiers if identifier not in cached
+        ]
+
+        if (
+            uncached
+            and ConfigService("system", SystemConfig).get().policy.perf_merged_details
+        ):
+            try:
+                detail = getter.details(uncached)
+                claimed += int(
+                    self._cache_and_claim_merged(
+                        getter_name, uncached, detail, node_index
+                    )
+                )
+                return claimed
+            except NotImplementedError:
+                pass
+            except Exception as ex:
+                logger.exception(
+                    f"Getter {getter_full_name} details() failed, falling back to detail(): {ex}"
+                )
+
+        identifiers = uncached
+
+        def fetch_and_claim(identifier: str) -> bool:
+            cached = self._cached_message(getter_name, identifier)
+            if cached is not None:
+                return self._cache_and_claim(getter_name, identifier, node_index)
+            for attempt in range(1, self.ATTEMPT_COUNT + 1):
+                try:
+                    return self._cache_and_claim(
+                        getter_name,
+                        identifier,
+                        node_index,
+                        detail=getter.detail(identifier),
+                    )
+                except Exception as ex:
+                    if attempt == self.ATTEMPT_COUNT:
+                        self._issue_warning(
+                            f"Getter '{getter_full_name}' failed to fetch details for "
+                            f"identifier {identifier} after {self.ATTEMPT_COUNT} attempts."
+                        )
+                        logger.exception(f"Failed to get detail for {identifier}: {ex}")
+                    else:
+                        logger.warning(
+                            f"Getter detail() attempt {attempt} failed: {ex}"
+                        )
+            return False
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(fetch_and_claim, value) for value in identifiers]
+            for future in as_completed(futures):
+                claimed += int(future.result())
+        return claimed
 
     def _execute_processer(
-        self, processer: Processer, content_list: list[Struct]
-    ) -> list[Struct]:
-        """Process each item in content_list and return processed list."""
-        processer_full_name = f"{processer.adapter_name}.{processer.identifier}"
-        result: list[Struct] = []
-
-        for content in content_list:
+        self, processer: Processer, node_index: int
+    ) -> tuple[int, int, int]:
+        items = self._pending_items(node_index)
+        succeeded = 0
+        failed = 0
+        for item in items:
+            last_error = ""
             for attempt in range(1, self.ATTEMPT_COUNT + 1):
                 try:
-                    logger.debug(
-                        f"Processing with {processer_full_name} (attempt {attempt}/{self.ATTEMPT_COUNT})"
+                    processed = processer.process(
+                        Struct.model_validate(item.content).model_copy(deep=True)
                     )
-                    processed = processer.process(content.model_copy(deep=True))
-                    result.append(processed)
-                    logger.debug(f"Successfully processed with {processer_full_name}")
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    with get_session() as session:
+                        current = session.get(FlowItemDB, item.id)
+                        if current and current.status == FlowItemStatus.PENDING.value:
+                            current.content = processed.model_dump()
+                            current.cursor = node_index + 1
+                            current.last_error = None
+                            current.updated_at = now
+                            session.add(current)
+                            session.commit()
+                    succeeded += 1
                     break
                 except TerminateFlowException:
-                    # TerminateFlowException signals skipping this specific content
-                    logger.info(
-                        f"Processer {processer_full_name} raised TerminateFlowException, "
-                        f"skipping current content"
-                    )
+                    with get_session() as session:
+                        current = session.get(FlowItemDB, item.id)
+                        if current:
+                            current.status = FlowItemStatus.DROPPED.value
+                            current.updated_at = datetime.datetime.now(
+                                datetime.timezone.utc
+                            )
+                            session.add(current)
+                            session.commit()
                     break
-                except Exception as e:
-                    if attempt == self.ATTEMPT_COUNT:
-                        warning_text = (
-                            f"Processer '{processer_full_name}' failed to process message "
-                            f"after {self.ATTEMPT_COUNT} attempts. Error: {str(e)}"
+                except Exception as ex:
+                    last_error = str(ex)
+                    if attempt < self.ATTEMPT_COUNT:
+                        logger.warning(f"Processer attempt {attempt} failed: {ex}")
+            else:
+                with get_session() as session:
+                    current = session.get(FlowItemDB, item.id)
+                    if current:
+                        current.status = FlowItemStatus.FAILED.value
+                        current.last_error = last_error
+                        current.updated_at = datetime.datetime.now(
+                            datetime.timezone.utc
                         )
-                        self._issue_warning(warning_text)
-                        raise
-                    else:
-                        logger.exception(f"Processer attempt {attempt} failed: {e}")
+                        session.add(current)
+                        session.commit()
+                failed += 1
+                self._issue_warning(
+                    f"Processer '{processer.adapter_name}.{processer.identifier}' failed "
+                    f"after {self.ATTEMPT_COUNT} attempts. Error: {last_error}"
+                )
+        return len(items), succeeded, failed
 
-        return result
-
-    def _execute_pusher(self, pusher: Pusher, content_list: list[Struct]) -> None:
-        """Push each item in content_list."""
-        pusher_full_name = f"{pusher.adapter_name}.{pusher.identifier}"
-
-        for content in content_list:
+    def _execute_pusher(
+        self, pusher: Pusher, node_index: int
+    ) -> tuple[int, int, int]:
+        items = self._pending_items(node_index)
+        succeeded = 0
+        failed = 0
+        for item in items:
+            last_error = ""
             for attempt in range(1, self.ATTEMPT_COUNT + 1):
                 try:
-                    logger.debug(
-                        f"Pushing with {pusher_full_name} (attempt {attempt}/{self.ATTEMPT_COUNT})"
+                    pusher.push(
+                        Struct.model_validate(item.content).model_copy(deep=True)
                     )
-                    pusher.push(content.model_copy(deep=True))
-                    logger.info(f"Successfully pushed to {pusher_full_name}")
+                    with get_session() as session:
+                        current = session.get(FlowItemDB, item.id)
+                        if current and current.status == FlowItemStatus.PENDING.value:
+                            current.status = FlowItemStatus.DONE.value
+                            current.last_error = None
+                            current.updated_at = datetime.datetime.now(
+                                datetime.timezone.utc
+                            )
+                            session.add(current)
+                            session.commit()
+                    succeeded += 1
                     break
-                except Exception as e:
-                    if attempt == self.ATTEMPT_COUNT:
-                        warning_text = (
-                            f"Pusher '{pusher_full_name}' failed to push message "
-                            f"after {self.ATTEMPT_COUNT} attempts. Error: {str(e)}"
+                except Exception as ex:
+                    last_error = str(ex)
+                    if attempt < self.ATTEMPT_COUNT:
+                        logger.warning(f"Pusher attempt {attempt} failed: {ex}")
+            else:
+                with get_session() as session:
+                    current = session.get(FlowItemDB, item.id)
+                    if current:
+                        current.status = FlowItemStatus.FAILED.value
+                        current.last_error = last_error
+                        current.updated_at = datetime.datetime.now(
+                            datetime.timezone.utc
                         )
-                        self._issue_warning(warning_text)
-                        logger.exception(
-                            f"Pusher {pusher_full_name} failed, skipping to next message: {e}"
-                        )
-                        break  # Skip to next message instead of raising
-                    else:
-                        logger.warning(f"Pusher attempt {attempt} failed: {e}")
+                        session.add(current)
+                        session.commit()
+                failed += 1
+                self._issue_warning(
+                    f"Pusher '{pusher.adapter_name}.{pusher.identifier}' failed after "
+                    f"{self.ATTEMPT_COUNT} attempts. Error: {last_error}"
+                )
+        return len(items), succeeded, failed
+
+    def _advance_instance(self, cursor: int) -> None:
+        with get_session() as session:
+            instance = session.get(FlowInstanceDB, self.flow_instance_id)
+            if not instance:
+                raise NotFoundException(
+                    f"Flow instance not found: {self.flow_instance_id}"
+                )
+            instance.cursor = cursor
+            session.add(instance)
+            session.commit()
+
+    def _finish(self) -> None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            session.execute(
+                update(FlowItemDB)
+                .where(
+                    FlowItemDB.flow_instance_id == self.flow_instance_id,
+                    FlowItemDB.status == FlowItemStatus.PENDING.value,
+                )
+                .values(status=FlowItemStatus.DONE.value, updated_at=now)
+            )
+            failed = session.exec(
+                select(FlowItemDB.id).where(
+                    FlowItemDB.flow_instance_id == self.flow_instance_id,
+                    FlowItemDB.status == FlowItemStatus.FAILED.value,
+                )
+            ).first()
+            instance = session.get(FlowInstanceDB, self.flow_instance_id)
+            if instance:
+                instance.cursor = len(instance.nodes or [])
+                instance.status = (
+                    FlowInstanceStatus.FAILED.value
+                    if failed is not None
+                    else FlowInstanceStatus.COMPLETED.value
+                )
+                session.add(instance)
+            session.commit()
 
     def _refresh_worker(self) -> None:
-        """Main pipeline worker: iterates through nodes and executes each."""
-        logger.debug(f"Starting refresh for flow: {self.flow_id}")
-
-        # Create FlowInstance record
         try:
-            instance = FlowInstanceService.create(flow_id=self.flow_id)
-            flow_instance_id = instance.id
-            self.flow_instance_id = flow_instance_id
-        except Exception as e:
-            logger.error(f"Failed to create flow instance for flow {self.flow_id}: {e}")
-            return
+            if self.flow_instance_id is None:
+                instance = FlowInstanceService.create(
+                    self.flow_id, nodes=self.flow_nodes
+                )
+                self.flow_instance_id = instance.id
 
-        # Initialize content_list for pipeline data flow
-        content_list: list[Struct] = []
-
-        # Update status to RUNNING
-        try:
             FlowInstanceService.update_status(
-                flow_instance_id, FlowInstanceStatus.RUNNING
+                self.flow_instance_id, FlowInstanceStatus.RUNNING
             )
-        except Exception as e:
-            logger.warning(
-                f"Failed to update flow instance {flow_instance_id} to running: {e}"
-            )
+            instance = FlowInstanceService.get(self.flow_instance_id)
 
-        def _failed(adapter_instance_id, e):
-            logger.exception(f"Failed to process node {adapter_instance_id}: {e}")
-            self._issue_warning(
-                f"Flow {self.flow_id} failed at node {adapter_instance_id}: {str(e)}"
-            )
-            try:
-                FlowInstanceService.update_status(
-                    flow_instance_id, FlowInstanceStatus.FAILED
-                )
-            except Exception:
-                pass
-
-        # Execute each node in order
-        for node_index, adapter_instance_id in enumerate(self.flow_nodes):
-            node_exec_id = None
-            try:
-                node_obj = AdapterInstanceService.get_object_by_id(
-                    UUID(adapter_instance_id)
-                )
-            except Exception as e:
-                _failed(adapter_instance_id, e)
-                return
-
-            # Create node execution record
-            # TODO: 增加expection记录，扩大记录范围，把每个节点的部分成功状态记录下来
-            try:
+            for node_index in range(instance.cursor, len(self.flow_nodes)):
+                adapter_instance_id = UUID(self.flow_nodes[node_index])
                 node_exec_id = FlowNodeExecutionService.create(
-                    flow_instance_id=flow_instance_id,
-                    adapter_instance_id=UUID(adapter_instance_id),
-                    node_index=node_index,
+                    self.flow_instance_id, adapter_instance_id, node_index
                 )
-            except Exception as ex:
-                logger.warning(f"Failed to create node execution record: {ex}")
+                items_in = len(self._pending_items(node_index))
+                items_out = 0
+                node_message = None
+                try:
+                    node_obj = AdapterInstanceService.get_object_by_id(
+                        adapter_instance_id
+                    )
+                except Exception as ex:
+                    items_out = self._set_items_failed(node_index, str(ex))
+                    FlowNodeExecutionService.update(
+                        node_exec_id,
+                        "failed",
+                        error_message=str(ex),
+                        items_in=items_in,
+                        items_out=items_out,
+                    )
+                    self._issue_warning(
+                        f"Flow {self.flow_id} could not load node "
+                        f"{adapter_instance_id}: {ex}"
+                    )
+                    self._advance_instance(node_index + 1)
+                    continue
 
-            items_in = len(content_list)
-            node_message = None
-
-            try:
                 self.current_processing_adapter_inst = (
                     f"{node_obj.adapter_name}.{node_obj.identifier}"
                 )
-
+                node_failed = False
+                error_message = None
                 if isinstance(node_obj, Getter):
-                    new_contents = self._execute_getter(node_obj)
-                    content_list.extend(new_contents)
-                    # Record message IDs for getter
-                    if new_contents:
-                        # Extract message identifiers from the execution context
-                        node_message = f"Retrieved {len(new_contents)} items"
-                    logger.info(
-                        f"Getter {node_obj.adapter_name}.{node_obj.identifier} "
-                        f"added {len(new_contents)} items, total: {len(content_list)}"
-                    )
-
+                    existing = self._advance_items(node_index)
+                    try:
+                        created = self._execute_getter(node_obj, node_index)
+                        items_out = existing + created
+                        node_message = f"Retrieved {created} items"
+                    except Exception as ex:
+                        node_failed = True
+                        error_message = str(ex)
+                        items_out = existing
+                        logger.warning(
+                            f"Getter {adapter_instance_id} failed; continuing: {ex}"
+                        )
                 elif isinstance(node_obj, Processer):
-                    content_list = self._execute_processer(node_obj, content_list)
-                    logger.info(
-                        f"Processer {node_obj.adapter_name}.{node_obj.identifier} "
-                        f"processed {len(content_list)} items"
+                    items_in, items_out, failed = self._execute_processer(
+                        node_obj, node_index
                     )
-
+                    if failed:
+                        node_failed = True
+                        error_message = f"{failed} item(s) failed"
                 elif isinstance(node_obj, Pusher):
-                    self._execute_pusher(node_obj, content_list)
-                    logger.info(
-                        f"Pusher {node_obj.adapter_name}.{node_obj.identifier} "
-                        f"pushed {len(content_list)} items, clearing content_list"
+                    items_in, items_out, failed = self._execute_pusher(
+                        node_obj, node_index
                     )
-                    content_list.clear()
-
+                    if failed:
+                        node_failed = True
+                        error_message = f"{failed} item(s) failed"
                 else:
+                    items_out = self._advance_items(node_index)
                     logger.warning(
                         f"Unknown node type for {adapter_instance_id}: {type(node_obj)}"
                     )
 
-                # Update node execution as success
-                if node_exec_id:
-                    try:
-                        FlowNodeExecutionService.update(
-                            record_id=node_exec_id,
-                            status="success",
-                            message=node_message,
-                            items_in=items_in,
-                            items_out=len(content_list),
-                        )
-                    except Exception as ex:
-                        logger.warning(f"Failed to update node execution record: {ex}")
+                FlowNodeExecutionService.update(
+                    node_exec_id,
+                    "failed" if node_failed else "success",
+                    message=node_message,
+                    error_message=error_message,
+                    items_in=items_in,
+                    items_out=items_out,
+                )
+                self._advance_instance(node_index + 1)
 
-            except Exception as e:
-                # Update node execution as failed
-                if node_exec_id:
-                    try:
-                        FlowNodeExecutionService.update(
-                            record_id=node_exec_id,
-                            status="failed",
-                            error_message=str(e),
-                            items_in=items_in,
-                            items_out=len(content_list),
-                        )
-                    except Exception as ex:
-                        logger.warning(f"Failed to update node execution record: {ex}")
+            self._finish()
+            logger.debug(f"Completed refresh for flow: {self.flow_id}")
+        except Exception as ex:
+            logger.exception(f"Unexpected failure in flow {self.flow_id}")
+            if self.flow_instance_id is not None:
+                try:
+                    self._abort(str(ex))
+                except Exception:
+                    logger.exception("Failed to mark flow instance failed")
 
-                # Check if the failing node is a Getter - if so, continue with other nodes
-                if isinstance(node_obj, Getter):
-                    logger.warning(
-                        f"Getter {adapter_instance_id} failed, continuing with next node: {e}"
-                    )
-                    continue
-
-                # For non-Getter nodes (or if we can't determine type), fail the flow
-                _failed(adapter_instance_id, e)
-                return
-
-        # Update final status
-        try:
-            FlowInstanceService.update_status(
-                flow_instance_id, FlowInstanceStatus.COMPLETED
+    def _abort(self, error: str) -> None:
+        """Fail all pending items so they are not left stranded, then fail the instance."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with get_session() as session:
+            session.execute(
+                update(FlowItemDB)
+                .where(
+                    FlowItemDB.flow_instance_id == self.flow_instance_id,
+                    FlowItemDB.status == FlowItemStatus.PENDING.value,
+                )
+                .values(
+                    status=FlowItemStatus.FAILED.value,
+                    last_error=f"aborted: {error}",
+                    updated_at=now,
+                )
             )
-        except Exception as e:
-            logger.warning(
-                f"Failed to update flow instance {flow_instance_id} to {FlowInstanceStatus.COMPLETED}: {e}"
-            )
+            instance = session.get(FlowInstanceDB, self.flow_instance_id)
+            if instance:
+                instance.status = FlowInstanceStatus.FAILED.value
+                session.add(instance)
+            session.commit()
 
-        logger.debug(f"Completed refresh for flow: {self.flow_id}")
-
-    def do(self):
-        self._thread = threading.Thread(target=self._refresh_worker)
+    def do(self) -> None:
+        self._thread = threading.Thread(target=self._refresh_worker, daemon=True)
         self._thread.start()
 
 
