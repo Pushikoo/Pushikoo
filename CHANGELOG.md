@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/Pushikoo/Pushikoo/compare/v0.14.0...v0.15.0) (2026-11-09)
+
+
+### Features
+
+* **flow:** manually retry or dismiss failed flow items ([bbd000c](https://github.com/Pushikoo/Pushikoo/commit/bbd000c89aad68b887971168963c0e83d3c33438))
+* **flow:** persist flow execution state and recover on startup ([b3f40d0](https://github.com/Pushikoo/Pushikoo/commit/b3f40d01f0e58a1a3e673c2e188ac60611d67532))
+* **flow:** run one normal instance per flow and warn on stuck nodes ([642afb3](https://github.com/Pushikoo/Pushikoo/commit/642afb3ead3ac96e23c829cbd7f4d0c89dc443ab))
+
+
+### Bug Fixes
+
+* stop deleting invalid configs and back up database before migrations ([41aa17f](https://github.com/Pushikoo/Pushikoo/commit/41aa17fd2de691a5db5a83727cd538db5fc5e010))
+
 ## [0.14.0](https://github.com/Pushikoo/Pushikoo/compare/v0.13.2...v0.14.0) (2026-07-04)
 
 
