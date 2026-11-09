@@ -1169,6 +1169,13 @@ export const PolicySchema = {
             description: 'Whether to merge detailed items in performance reports',
             default: true
         },
+        flow_node_stuck_warning_seconds: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Flow Node Stuck Warning Seconds',
+            description: 'Warn when a flow node runs longer than this many seconds',
+            default: 600
+        },
         attempt: {
             '$ref': '#/components/schemas/Attempt',
             default: {
@@ -1356,6 +1363,7 @@ export const SystemConfigSchema = {
             '$ref': '#/components/schemas/Policy',
             default: {
                 perf_merged_details: true,
+                flow_node_stuck_warning_seconds: 600,
                 attempt: {
                     getter_timeline: [5, 10, 50]
                 }

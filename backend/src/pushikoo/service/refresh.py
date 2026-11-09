@@ -260,6 +260,7 @@ class FlowInstanceService:
         flow_id: UUID,
         nodes: list[str] | None = None,
         status: FlowInstanceStatus = FlowInstanceStatus.WAITING,
+        instance_id: UUID | None = None,
     ) -> FlowInstanceModel:
         with get_session() as session:
             if nodes is None:
@@ -268,7 +269,11 @@ class FlowInstanceService:
                     raise NotFoundException(f"Flow not found: {flow_id}")
                 nodes = list(flow_db.nodes or [])
             instance_db = FlowInstanceDB(
-                flow_id=flow_id, status=status.value, nodes=nodes, cursor=0
+                id=instance_id or uuid.uuid4(),
+                flow_id=flow_id,
+                status=status.value,
+                nodes=nodes,
+                cursor=0,
             )
             session.add(instance_db)
             session.commit()
@@ -397,17 +402,24 @@ class FlowInstanceService:
         """Resume instances interrupted while waiting or running."""
         now = datetime.datetime.now(datetime.timezone.utc)
         with get_session() as session:
-            rows = session.exec(
-                select(FlowInstanceDB).where(
-                    FlowInstanceDB.status.in_(  # type: ignore[union-attr]
-                        [
-                            FlowInstanceStatus.RUNNING.value,
-                            FlowInstanceStatus.WAITING.value,
-                        ]
+            rows = list(
+                session.exec(
+                    select(FlowInstanceDB)
+                    .where(
+                        FlowInstanceDB.status.in_(  # type: ignore[union-attr]
+                            [
+                                FlowInstanceStatus.RUNNING.value,
+                                FlowInstanceStatus.WAITING.value,
+                            ]
+                        )
                     )
-                )
-            ).all()
-            instance_ids = [row.id for row in rows]
+                    .order_by(FlowInstanceDB.created_at, FlowInstanceDB.id)
+                ).all()
+            )
+            recovery_rows = [
+                (row.id, row.flow_id, FlowInstanceKind(row.kind)) for row in rows
+            ]
+            instance_ids = [instance_id for instance_id, _, _ in recovery_rows]
             if instance_ids:
                 session.execute(
                     update(FlowNodeExecutionDB)
@@ -423,11 +435,26 @@ class FlowInstanceService:
                 )
                 session.commit()
 
-        for instance_id in instance_ids:
+        normal_by_flow: dict[UUID, list[UUID]] = {}
+        retry_ids: list[UUID] = []
+        for instance_id, flow_id, kind in recovery_rows:
+            if kind == FlowInstanceKind.NORMAL:
+                normal_by_flow.setdefault(flow_id, []).append(instance_id)
+            else:
+                retry_ids.append(instance_id)
+
+        for flow_id, flow_instance_ids in normal_by_flow.items():
+            try:
+                FlowInstanceRunner.resume_many(flow_instance_ids).do()
+            except Exception:
+                logger.exception(
+                    f"Failed to resume normal flow instances for flow {flow_id}"
+                )
+        for instance_id in retry_ids:
             try:
                 FlowInstanceRunner.resume(instance_id).do()
             except Exception:
-                logger.exception(f"Failed to resume flow instance {instance_id}")
+                logger.exception(f"Failed to resume retry flow instance {instance_id}")
         return len(instance_ids)
 
 
@@ -790,6 +817,9 @@ class FlowInstanceRunner:
     """Persistent, resumable pipeline runner."""
 
     ATTEMPT_COUNT = 3
+    _registry_lock = threading.Lock()
+    _active_runners: dict[int, "FlowInstanceRunner"] = {}
+    _normal_runners: dict[UUID, "FlowInstanceRunner"] = {}
 
     def __init__(
         self,
@@ -803,15 +833,15 @@ class FlowInstanceRunner:
 
         self.flow_instance_id = instance_id
         self.current_processing_adapter_inst: str | None = None
+        self.current_node_index: int | None = None
+        self.current_node_started_at: datetime.datetime | None = None
+        self.started_at: datetime.datetime | None = None
         self._thread: threading.Thread | None = None
+        self._resume_instance_ids: list[UUID] = []
+        self._create_instance_on_worker = instance_id is None
 
         if instance_id is not None:
-            with get_session() as session:
-                instance = session.get(FlowInstanceDB, instance_id)
-                if not instance:
-                    raise NotFoundException(f"Flow instance not found: {instance_id}")
-                self.flow_id = instance.flow_id
-                self.flow_nodes = list(instance.nodes or [])
+            self._load_instance(instance_id)
             return
 
         self.flow_id = flow_id
@@ -832,10 +862,67 @@ class FlowInstanceRunner:
         )
         if not self.flow_nodes:
             raise InvalidInputException(f"Flow has no selected nodes: {flow_id}")
+        self.flow_instance_id = uuid.uuid4()
+        self.kind = FlowInstanceKind.NORMAL
+
+    def _load_instance(self, instance_id: UUID) -> None:
+        with get_session() as session:
+            instance = session.get(FlowInstanceDB, instance_id)
+            if not instance:
+                raise NotFoundException(f"Flow instance not found: {instance_id}")
+            self.flow_instance_id = instance.id
+            self.flow_id = instance.flow_id
+            self.flow_nodes = list(instance.nodes or [])
+            self.kind = FlowInstanceKind(instance.kind)
 
     @classmethod
     def resume(cls, instance_id: UUID) -> "FlowInstanceRunner":
         return cls(instance_id=instance_id)
+
+    @classmethod
+    def resume_many(cls, instance_ids: list[UUID]) -> "FlowInstanceRunner":
+        if not instance_ids:
+            raise InvalidInputException("At least one flow instance is required")
+        runner = cls.resume(instance_ids[0])
+        runner._resume_instance_ids = list(instance_ids)
+        return runner
+
+    @classmethod
+    def active_runners(cls) -> list["FlowInstanceRunner"]:
+        with cls._registry_lock:
+            return list(cls._active_runners.values())
+
+    @classmethod
+    def running_normal(cls, flow_id: UUID) -> "FlowInstanceRunner | None":
+        with cls._registry_lock:
+            return cls._normal_runners.get(flow_id)
+
+    def running_seconds(self) -> float:
+        if self.started_at is None:
+            return 0.0
+        return max(
+            0.0,
+            (
+                datetime.datetime.now(datetime.timezone.utc) - self.started_at
+            ).total_seconds(),
+        )
+
+    def _set_current_node(self, node_index: int, adapter_instance_id: UUID) -> None:
+        adapter_name = str(adapter_instance_id)
+        with get_session() as session:
+            adapter = session.get(AdapterInstanceDB, adapter_instance_id)
+            if adapter is not None:
+                adapter_name = f"{adapter.adapter_name}.{adapter.identifier}"
+        with self._registry_lock:
+            self.current_node_index = node_index
+            self.current_processing_adapter_inst = adapter_name
+            self.current_node_started_at = datetime.datetime.now(datetime.timezone.utc)
+
+    def _clear_current_node(self) -> None:
+        with self._registry_lock:
+            self.current_node_index = None
+            self.current_processing_adapter_inst = None
+            self.current_node_started_at = None
 
     def _issue_warning(self, warning_text: str) -> None:
         try:
@@ -1298,109 +1385,128 @@ class FlowInstanceRunner:
                 session.add(instance)
             session.commit()
 
-    def _refresh_worker(self) -> None:
-        try:
-            if self.flow_instance_id is None:
-                instance = FlowInstanceService.create(
-                    self.flow_id, nodes=self.flow_nodes
-                )
-                self.flow_instance_id = instance.id
-
-            FlowInstanceService.update_status(
-                self.flow_instance_id, FlowInstanceStatus.RUNNING
+    def _run_current_instance(self) -> None:
+        if self._create_instance_on_worker:
+            FlowInstanceService.create(
+                self.flow_id,
+                nodes=self.flow_nodes,
+                instance_id=self.flow_instance_id,
             )
-            instance = FlowInstanceService.get(self.flow_instance_id)
+            self._create_instance_on_worker = False
 
-            for node_index in range(instance.cursor, len(self.flow_nodes)):
-                adapter_instance_id = UUID(self.flow_nodes[node_index])
-                node_exec_id = FlowNodeExecutionService.create(
-                    self.flow_instance_id, adapter_instance_id, node_index
-                )
-                items_in = len(self._pending_items(node_index))
-                items_out = 0
-                node_message = None
-                try:
-                    node_obj = AdapterInstanceService.get_object_by_id(
-                        adapter_instance_id
-                    )
-                except Exception as ex:
-                    items_out = self._set_items_failed(node_index, str(ex))
-                    FlowNodeExecutionService.update(
-                        node_exec_id,
-                        "failed",
-                        error_message=str(ex),
-                        items_in=items_in,
-                        items_out=items_out,
-                    )
-                    self._issue_warning(
-                        f"Flow {self.flow_id} could not load node "
-                        f"{adapter_instance_id}: {ex}"
-                    )
-                    self._advance_instance(node_index + 1)
-                    continue
+        FlowInstanceService.update_status(
+            self.flow_instance_id, FlowInstanceStatus.RUNNING
+        )
+        instance = FlowInstanceService.get(self.flow_instance_id)
 
-                self.current_processing_adapter_inst = (
-                    f"{node_obj.adapter_name}.{node_obj.identifier}"
-                )
-                node_failed = False
-                error_message = None
-                if isinstance(node_obj, Getter):
-                    existing = self._advance_items(node_index)
-                    created = 0
-                    if instance.kind == FlowInstanceKind.NORMAL:
-                        try:
-                            created = self._execute_getter(node_obj, node_index)
-                        except Exception as ex:
-                            node_failed = True
-                            error_message = str(ex)
-                            logger.warning(
-                                f"Getter {adapter_instance_id} failed; continuing: {ex}"
-                            )
-                    items_out = existing + created
-                    node_message = (
-                        f"Released {existing} retry items"
-                        if instance.kind == FlowInstanceKind.RETRY
-                        else f"Retrieved {created} items"
-                    )
-                elif isinstance(node_obj, Processer):
-                    items_in, items_out, failed = self._execute_processer(
-                        node_obj, node_index
-                    )
-                    if failed:
-                        node_failed = True
-                        error_message = f"{failed} item(s) failed"
-                elif isinstance(node_obj, Pusher):
-                    items_in, items_out, failed = self._execute_pusher(
-                        node_obj, node_index
-                    )
-                    if failed:
-                        node_failed = True
-                        error_message = f"{failed} item(s) failed"
-                else:
-                    items_out = self._advance_items(node_index)
-                    logger.warning(
-                        f"Unknown node type for {adapter_instance_id}: {type(node_obj)}"
-                    )
-
+        for node_index in range(instance.cursor, len(self.flow_nodes)):
+            adapter_instance_id = UUID(self.flow_nodes[node_index])
+            node_exec_id = FlowNodeExecutionService.create(
+                self.flow_instance_id, adapter_instance_id, node_index
+            )
+            items_in = len(self._pending_items(node_index))
+            items_out = 0
+            node_message = None
+            self._set_current_node(node_index, adapter_instance_id)
+            try:
+                node_obj = AdapterInstanceService.get_object_by_id(adapter_instance_id)
+            except Exception as ex:
+                items_out = self._set_items_failed(node_index, str(ex))
                 FlowNodeExecutionService.update(
                     node_exec_id,
-                    "failed" if node_failed else "success",
-                    message=node_message,
-                    error_message=error_message,
+                    "failed",
+                    error_message=str(ex),
                     items_in=items_in,
                     items_out=items_out,
                 )
+                self._issue_warning(
+                    f"Flow {self.flow_id} could not load node "
+                    f"{adapter_instance_id}: {ex}"
+                )
                 self._advance_instance(node_index + 1)
+                self._clear_current_node()
+                continue
 
-            self._finish()
-            logger.debug(f"Completed refresh for flow: {self.flow_id}")
-        except Exception as ex:
-            logger.exception(f"Unexpected failure in flow {self.flow_id}")
-            if self.flow_instance_id is not None:
+            with self._registry_lock:
+                self.current_processing_adapter_inst = (
+                    f"{node_obj.adapter_name}.{node_obj.identifier}"
+                )
+            node_failed = False
+            error_message = None
+            if isinstance(node_obj, Getter):
+                existing = self._advance_items(node_index)
+                created = 0
+                if instance.kind == FlowInstanceKind.NORMAL:
+                    try:
+                        created = self._execute_getter(node_obj, node_index)
+                    except Exception as ex:
+                        node_failed = True
+                        error_message = str(ex)
+                        logger.warning(
+                            f"Getter {adapter_instance_id} failed; continuing: {ex}"
+                        )
+                items_out = existing + created
+                node_message = (
+                    f"Released {existing} retry items"
+                    if instance.kind == FlowInstanceKind.RETRY
+                    else f"Retrieved {created} items"
+                )
+            elif isinstance(node_obj, Processer):
+                items_in, items_out, failed = self._execute_processer(
+                    node_obj, node_index
+                )
+                if failed:
+                    node_failed = True
+                    error_message = f"{failed} item(s) failed"
+            elif isinstance(node_obj, Pusher):
+                items_in, items_out, failed = self._execute_pusher(node_obj, node_index)
+                if failed:
+                    node_failed = True
+                    error_message = f"{failed} item(s) failed"
+            else:
+                items_out = self._advance_items(node_index)
+                logger.warning(
+                    f"Unknown node type for {adapter_instance_id}: {type(node_obj)}"
+                )
+
+            FlowNodeExecutionService.update(
+                node_exec_id,
+                "failed" if node_failed else "success",
+                message=node_message,
+                error_message=error_message,
+                items_in=items_in,
+                items_out=items_out,
+            )
+            self._advance_instance(node_index + 1)
+            self._clear_current_node()
+
+        self._finish()
+        logger.debug(f"Completed refresh for flow: {self.flow_id}")
+
+    def _refresh_worker(self) -> None:
+        try:
+            instance_ids: list[UUID | None] = (
+                self._resume_instance_ids if self._resume_instance_ids else [None]
+            )
+            for instance_id in instance_ids:
                 try:
-                    self._abort(str(ex))
-                except Exception:
-                    logger.exception("Failed to mark flow instance failed")
+                    if instance_id is not None:
+                        self._load_instance(instance_id)
+                    self._run_current_instance()
+                except Exception as ex:
+                    logger.exception(f"Unexpected failure in flow {self.flow_id}")
+                    if self.flow_instance_id is not None:
+                        try:
+                            self._abort(str(ex))
+                        except Exception:
+                            logger.exception("Failed to mark flow instance failed")
+                finally:
+                    self._clear_current_node()
+        finally:
+            with self._registry_lock:
+                self._active_runners.pop(id(self), None)
+                if self._normal_runners.get(self.flow_id) is self:
+                    self._normal_runners.pop(self.flow_id, None)
 
     def _abort(self, error: str) -> None:
         """Fail all pending items so they are not left stranded, then fail the instance."""
@@ -1425,11 +1531,34 @@ class FlowInstanceRunner:
             session.commit()
 
     def do(self) -> None:
-        self._thread = threading.Thread(target=self._refresh_worker, daemon=True)
-        self._thread.start()
+        self.started_at = datetime.datetime.now(datetime.timezone.utc)
+        with self._registry_lock:
+            if self.kind == FlowInstanceKind.NORMAL:
+                existing = self._normal_runners.get(self.flow_id)
+                if existing is not None:
+                    instance_id = existing.flow_instance_id or "pending"
+                    raise ConflictException(
+                        f"Flow {self.flow_id} is already running in instance "
+                        f"{instance_id} ({existing.running_seconds():.1f}s elapsed)"
+                    )
+                self._normal_runners[self.flow_id] = self
+            self._active_runners[id(self)] = self
+
+        try:
+            self._thread = threading.Thread(target=self._refresh_worker, daemon=True)
+            self._thread.start()
+        except Exception:
+            with self._registry_lock:
+                self._active_runners.pop(id(self), None)
+                if self._normal_runners.get(self.flow_id) is self:
+                    self._normal_runners.pop(self.flow_id, None)
+            raise
 
 
 class CronService:
+    WATCHDOG_JOB_ID = "pushikoo-flow-runner-watchdog"
+    WATCHDOG_INTERVAL_SECONDS = 60
+    _stuck_warning_keys: set[tuple[UUID, int]] = set()
     _scheduler = BackgroundScheduler(
         executors={
             "default": {"type": "threadpool", "max_workers": CRON_SCHEDULER_MAX_WORKERS}
@@ -1495,6 +1624,77 @@ class CronService:
             return result
 
     @classmethod
+    def _run_scheduled_flow(cls, flow_id: UUID) -> None:
+        try:
+            FlowInstanceRunner(flow_id).do()
+        except ConflictException:
+            runner = FlowInstanceRunner.running_normal(flow_id)
+            logger.info(
+                "Skipping scheduled flow {} because instance {} has been running "
+                "for {:.1f}s",
+                flow_id,
+                runner.flow_instance_id if runner else "unknown",
+                runner.running_seconds() if runner else 0.0,
+            )
+
+    @staticmethod
+    def _send_stuck_warning(message: str) -> None:
+        try:
+            WarningService.issue(Struct(content=[StructText(text=message)]))
+        except Exception:
+            logger.exception("Failed to issue stuck flow-node warning")
+
+    @classmethod
+    def _check_stuck_runners(cls) -> None:
+        try:
+            threshold = (
+                ConfigService("system", SystemConfig)
+                .get()
+                .policy.flow_node_stuck_warning_seconds
+            )
+        except Exception:
+            logger.exception("Failed to load flow-node stuck warning threshold")
+            return
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        active_node_keys: set[tuple[UUID, int]] = set()
+        for runner in FlowInstanceRunner.active_runners():
+            with FlowInstanceRunner._registry_lock:
+                instance_id = runner.flow_instance_id
+                node_index = runner.current_node_index
+                adapter_name = runner.current_processing_adapter_inst
+                node_started_at = runner.current_node_started_at
+            if (
+                instance_id is None
+                or node_index is None
+                or adapter_name is None
+                or node_started_at is None
+            ):
+                continue
+            elapsed = max(0.0, (now - node_started_at).total_seconds())
+            key = (instance_id, node_index)
+            active_node_keys.add(key)
+            if elapsed <= threshold or key in cls._stuck_warning_keys:
+                continue
+            cls._stuck_warning_keys.add(key)
+            try:
+                flow = FlowService.get(runner.flow_id)
+                flow_name = flow.name
+            except Exception:
+                flow_name = "<unknown>"
+            message = (
+                f"Flow '{flow_name}' ({runner.flow_id}) instance {instance_id} "
+                f"is stuck at node {node_index} ({adapter_name}) for "
+                f"{elapsed:.1f} seconds."
+            )
+            threading.Thread(
+                target=cls._send_stuck_warning,
+                args=(message,),
+                daemon=True,
+            ).start()
+        cls._stuck_warning_keys.intersection_update(active_node_keys)
+
+    @classmethod
     def _reload(cls):
         with cls._lock:
             logger.info("CronService reloading scheduler...")
@@ -1512,9 +1712,18 @@ class CronService:
             }
 
             job_ids = {job.id for job in cls._scheduler.get_jobs()}
+            if cls.WATCHDOG_JOB_ID not in job_ids:
+                cls._scheduler.add_job(
+                    cls._check_stuck_runners,
+                    trigger="interval",
+                    seconds=cls.WATCHDOG_INTERVAL_SECONDS,
+                    id=cls.WATCHDOG_JOB_ID,
+                    replace_existing=True,
+                )
+                job_ids.add(cls.WATCHDOG_JOB_ID)
 
             to_add = db_ids - job_ids
-            to_remove = job_ids - db_ids
+            to_remove = job_ids - db_ids - {cls.WATCHDOG_JOB_ID}
 
             cron_map = {
                 cls._job_id(flow_id, cron_expr): (cron_id, flow_id, cron_expr)
@@ -1524,7 +1733,8 @@ class CronService:
             for job_id in to_add:
                 cron_id, flow_id, cron = cron_map[job_id]
                 cls._scheduler.add_job(
-                    func=lambda flow_id=flow_id: FlowInstanceRunner(flow_id).do(),
+                    func=cls._run_scheduled_flow,
+                    args=[flow_id],
                     trigger=CronService._parse_cron_to_trigger(cron),
                     id=job_id,
                     replace_existing=True,

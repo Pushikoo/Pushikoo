@@ -155,6 +155,7 @@
         "noNodeExecutions": "No node executions recorded",
         "executionStarted": "Flow execution started",
         "executionFailed": "Failed to start flow execution",
+        "alreadyRunning": "This flow is already running",
         "failedMessages": "Failed Messages",
         "retryKind": "retry",
         "retryAllFailed": "Retry all failed",

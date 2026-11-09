@@ -16,6 +16,8 @@ from pushikoo.db import get_session
 from pushikoo.service.base import ConflictException
 
 
+PIP_OPERATION_TIMEOUT_SECONDS = 600
+
 # Regex for valid package spec: package names with optional version specifiers
 # Examples: pushikoo-adapter-test, pushikoo>=1.0.0, package[extra]==1.0
 _PACKAGE_SPEC_PATTERN = re.compile(
@@ -325,9 +327,29 @@ class PIPService:
         logger.info(f"Installing package with {installer_name}: {target}")
         logger.debug(f"Executing command: {' '.join(cmd)}")
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=PIP_OPERATION_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as error:
+            output = _join_output(
+                error.stdout if isinstance(error.stdout, str) else "",
+                error.stderr if isinstance(error.stderr, str) else "",
+            )
+            message = (
+                f"Installation timed out after {PIP_OPERATION_TIMEOUT_SECONDS} seconds"
+            )
+            logger.error(f"{message}: {target}")
+            return {
+                "ok": False,
+                "target": target,
+                "output": f"{message}\n{output}" if output else message,
+            }
 
         stdout = result.stdout or ""
         stderr = result.stderr or ""
@@ -386,9 +408,27 @@ class PIPService:
         logger.info(f"Uninstalling package with {installer_name}: {package_name}")
         logger.debug(f"Executing command: {' '.join(cmd)}")
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=PIP_OPERATION_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as error:
+            output = _join_output(
+                error.stdout if isinstance(error.stdout, str) else "",
+                error.stderr if isinstance(error.stderr, str) else "",
+            )
+            message = f"Uninstallation timed out after {PIP_OPERATION_TIMEOUT_SECONDS} seconds"
+            logger.error(f"{message}: {package_name}")
+            return {
+                "ok": False,
+                "target": package_name,
+                "output": f"{message}\n{output}" if output else message,
+            }
 
         stdout = result.stdout or ""
         stderr = result.stderr or ""

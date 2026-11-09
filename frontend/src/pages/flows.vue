@@ -661,7 +661,10 @@ const confirmExecuteFlow = async () => {
     executeDialog.value = false
   } catch (e) {
     console.error('Failed to execute flow', e)
-    showSnackbar(getApiErrorMessage(e, t('flows.executionFailed')), 'error')
+    const message = (e as { status?: number })?.status === 409
+      ? t('flows.alreadyRunning')
+      : getApiErrorMessage(e, t('flows.executionFailed'))
+    showSnackbar(message, 'error')
   } finally {
     executingFlowId.value = null
   }

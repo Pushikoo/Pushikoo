@@ -28,7 +28,11 @@ from pushikoo.service.refresh import (
     FlowNodeExecutionService,
     FlowService,
 )
-from pushikoo.service.base import InvalidInputException, NotFoundException
+from pushikoo.service.base import (
+    ConflictException,
+    InvalidInputException,
+    NotFoundException,
+)
 
 
 router = APIRouter(prefix="/flows", tags=["flows"])
@@ -184,6 +188,9 @@ def execute_flow(flow_id: UUID, payload: FlowExecuteRequest | None = None) -> Re
 
     include_nodes = payload.include_nodes if payload else None
     runner = FlowInstanceRunner(flow_id, include_nodes=include_nodes)
-    runner.do()
+    try:
+        runner.do()
+    except ConflictException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

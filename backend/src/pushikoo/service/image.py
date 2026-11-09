@@ -6,6 +6,7 @@ import datetime
 import hashlib
 import shutil
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -23,6 +24,11 @@ from pushikoo.util.setting import (
     settings,
 )
 from pushikoo.service.base import InvalidInputException
+
+REMOTE_CONNECT_TIMEOUT_SECONDS = 10
+REMOTE_READ_TIMEOUT_SECONDS = 30
+REMOTE_DOWNLOAD_MAX_SECONDS = 120
+REMOTE_DOWNLOAD_MAX_BYTES = 50 * 1024 * 1024
 
 # Format to MIME suffix mapping
 FORMAT_TO_SUFFIX = {
@@ -49,32 +55,24 @@ class ImageService:
         Returns:
             Access URL: BACKEND_BASE_HOST + /file/{uuid}
         """
+        image_path: Path | None = None
+        is_remote = urlparse(uri).scheme in ("http", "https")
         try:
-            # Parse URI and get image data
             image_path = ImageService._resolve_uri_to_file(uri)
-
-            # Calculate SHA256 hash
             file_hash = ImageService._calculate_hash(image_path)
-
-            # Detect image format using PIL
             suffix = ImageService._detect_image_format(image_path)
 
-            # Construct filename
             filename = f"{file_hash}.{suffix}"
             target_path = FILE_DIR / filename
-
-            # Copy/move to FILE_DIR if not already there
             if not target_path.exists():
                 shutil.copy2(image_path, target_path)
                 logger.debug(f"Saved image to {target_path}")
 
-            # Generate UUID and calculate expire_at
             file_id = uuid.uuid4()
             expire_at = datetime.datetime.now(
                 datetime.timezone.utc
             ) + datetime.timedelta(seconds=IMAGE_LINK_DEFAULT_EXPIRE_SECOND)
 
-            # Store in database
             with get_session() as session:
                 file_record = FileDB(
                     id=file_id,
@@ -85,14 +83,18 @@ class ImageService:
                 session.commit()
                 logger.debug(f"Created file record: {file_id} -> {filename}")
 
-            # Return access URL
-            access_url = f"{settings.BASE_HOST}/file/{file_id}"
-            return access_url
-
+            return f"{settings.BASE_HOST}/file/{file_id}"
         except Exception as e:
             logger.warning(f"ImageService.create failed for {uri}: {e}")
-            # Return original URI on failure
             return uri
+        finally:
+            if is_remote and image_path is not None:
+                try:
+                    image_path.unlink(missing_ok=True)
+                except OSError as error:
+                    logger.warning(
+                        f"Failed to delete temporary image file {image_path}: {error}"
+                    )
 
     @staticmethod
     def _resolve_uri_to_file(uri: str) -> Path:
@@ -117,20 +119,64 @@ class ImageService:
             return Path(local_path)
 
         elif parsed.scheme in ("http", "https"):
-            # Download to temp file
-            response = ImageService._http_get(uri, stream=True, timeout=30)
-            response.raise_for_status()
+            started_at = time.monotonic()
+            response = ImageService._http_get(
+                uri,
+                stream=True,
+                timeout=(
+                    REMOTE_CONNECT_TIMEOUT_SECONDS,
+                    REMOTE_READ_TIMEOUT_SECONDS,
+                ),
+            )
+            temp_path: Path | None = None
+            try:
+                response.raise_for_status()
+                content_length = response.headers.get("content-length")
+                if (
+                    content_length is not None
+                    and int(content_length) > REMOTE_DOWNLOAD_MAX_BYTES
+                ):
+                    raise InvalidInputException(
+                        f"Remote image exceeds {REMOTE_DOWNLOAD_MAX_BYTES} byte limit"
+                    )
 
-            # Create temp file
-            suffix = Path(parsed.path).suffix or ""
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        tmp.write(chunk)
-                return Path(tmp.name)
+                suffix = Path(parsed.path).suffix or ""
+                downloaded = 0
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    temp_path = Path(tmp.name)
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if time.monotonic() - started_at > REMOTE_DOWNLOAD_MAX_SECONDS:
+                            raise InvalidInputException(
+                                "Remote image download exceeded "
+                                f"{REMOTE_DOWNLOAD_MAX_SECONDS} second limit"
+                            )
+                        if chunk:
+                            downloaded += len(chunk)
+                            if downloaded > REMOTE_DOWNLOAD_MAX_BYTES:
+                                raise InvalidInputException(
+                                    "Remote image exceeds "
+                                    f"{REMOTE_DOWNLOAD_MAX_BYTES} byte limit"
+                                )
+                            tmp.write(chunk)
+                    if time.monotonic() - started_at > REMOTE_DOWNLOAD_MAX_SECONDS:
+                        raise InvalidInputException(
+                            "Remote image download exceeded "
+                            f"{REMOTE_DOWNLOAD_MAX_SECONDS} second limit"
+                        )
+                return temp_path
+            except Exception:
+                if temp_path is not None:
+                    temp_path.unlink(missing_ok=True)
+                raise
+            finally:
+                close = getattr(response, "close", None)
+                if close is not None:
+                    close()
 
-        elif not parsed.scheme:
-            # Plain local path
+        elif not parsed.scheme or (
+            len(parsed.scheme) == 1 and len(uri) > 1 and uri[1] == ":"
+        ):
+            # Plain local path, including Windows drive-letter paths.
             return Path(uri)
 
         else:

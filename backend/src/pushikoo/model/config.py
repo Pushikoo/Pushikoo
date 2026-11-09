@@ -17,6 +17,11 @@ class SystemConfig(BaseModel):
             True,
             description="Whether to merge detailed items in performance reports",
         )
+        flow_node_stuck_warning_seconds: int = Field(
+            600,
+            ge=1,
+            description="Warn when a flow node runs longer than this many seconds",
+        )
 
         class Attempt(BaseModel):
             getter_timeline: list[int] = Field(

@@ -155,6 +155,7 @@
         "noNodeExecutions": "ノード実行記録がありません",
         "executionStarted": "フロー実行を開始しました",
         "executionFailed": "フロー実行の開始に失敗しました",
+        "alreadyRunning": "このフローは実行中です",
         "failedMessages": "失敗メッセージ",
         "retryKind": "再試行",
         "retryAllFailed": "失敗項目をすべて再試行",

@@ -264,6 +264,10 @@ export type Policy = {
      * Whether to merge detailed items in performance reports
      */
     perf_merged_details?: boolean;
+    /**
+     * Warn when a flow node runs longer than this many seconds
+     */
+    flow_node_stuck_warning_seconds?: number;
     attempt?: Attempt;
 };
 

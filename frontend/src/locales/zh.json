@@ -155,6 +155,7 @@
         "noNodeExecutions": "无节点执行记录",
         "executionStarted": "流程执行已启动",
         "executionFailed": "启动流程执行失败",
+        "alreadyRunning": "该 flow 正在运行中",
         "failedMessages": "失败消息",
         "retryKind": "重试",
         "retryAllFailed": "重试全部失败条目",
