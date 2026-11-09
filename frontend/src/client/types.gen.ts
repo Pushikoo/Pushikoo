@@ -77,9 +77,12 @@ export type FlowInstance = {
     id: string;
     flow_id: string;
     status: FlowInstanceStatus;
+    kind: FlowInstanceKind;
+    parent_instance_id: (string | null);
     nodes: Array<(string)>;
     cursor: number;
     created_at: string;
+    item_counts: FlowItemCounts;
 };
 
 /**
@@ -89,15 +92,64 @@ export type FlowInstanceDetail = {
     id: string;
     flow_id: string;
     status: FlowInstanceStatus;
+    kind: FlowInstanceKind;
+    parent_instance_id: (string | null);
     nodes: Array<(string)>;
     cursor: number;
     created_at: string;
+    item_counts: FlowItemCounts;
     node_executions: Array<FlowNodeExecution>;
 };
+
+export type FlowInstanceKind = 'normal' | 'retry';
 
 export type FlowInstanceOrder = 'created_at_desc' | 'created_at_asc';
 
 export type FlowInstanceStatus = 'waiting' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export type FlowItem = {
+    id: string;
+    instance_id: string;
+    message_id: (string | null);
+    content: {
+        [key: string]: unknown;
+    };
+    cursor: number;
+    status: FlowItemStatus;
+    last_error: (string | null);
+    retried_by: (string | null);
+    retried_by_instance_id?: (string | null);
+    adapter_instance_id: (string | null);
+    created_at: string;
+    updated_at: string;
+};
+
+export type FlowItemActionRequest = {
+    item_ids?: (Array<(string)> | null);
+    instance_id?: (string | null);
+    flow_id?: (string | null);
+};
+
+export type FlowItemCounts = {
+    pending?: number;
+    done?: number;
+    dropped?: number;
+    failed?: number;
+    retried?: number;
+};
+
+export type FlowItemDismissResponse = {
+    dismissed: number;
+    skipped: number;
+};
+
+export type FlowItemRetryResponse = {
+    retried: number;
+    skipped: number;
+    instance_ids: Array<(string)>;
+};
+
+export type FlowItemStatus = 'pending' | 'done' | 'dropped' | 'failed' | 'retried';
 
 /**
  * Execution details for a single node in a flow instance.
@@ -183,6 +235,13 @@ export type Page_Flow_ = {
 
 export type Page_FlowInstance_ = {
     items: Array<FlowInstance>;
+    total: number;
+    limit: (number | null);
+    offset: (number | null);
+};
+
+export type Page_FlowItem_ = {
+    items: Array<FlowItem>;
     total: number;
     limit: (number | null);
     offset: (number | null);
@@ -366,6 +425,34 @@ export type ListFlowInstancesApiV1FlowsInstancesGetData = {
 };
 
 export type ListFlowInstancesApiV1FlowsInstancesGetResponse = (Page_FlowInstance_);
+
+export type ListFlowItemsApiV1FlowsItemsGetData = {
+    flowId?: (string | null);
+    instanceId?: (string | null);
+    limit?: (number | null);
+    offset?: (number | null);
+    status?: (FlowItemStatus | null);
+};
+
+export type ListFlowItemsApiV1FlowsItemsGetResponse = (Page_FlowItem_);
+
+export type RetryFlowItemsApiV1FlowsItemsRetryPostData = {
+    requestBody: FlowItemActionRequest;
+};
+
+export type RetryFlowItemsApiV1FlowsItemsRetryPostResponse = (FlowItemRetryResponse);
+
+export type DismissFlowItemsApiV1FlowsItemsDismissPostData = {
+    requestBody: FlowItemActionRequest;
+};
+
+export type DismissFlowItemsApiV1FlowsItemsDismissPostResponse = (FlowItemDismissResponse);
+
+export type ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetData = {
+    instanceId: string;
+};
+
+export type ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetResponse = (Array<FlowItem>);
 
 export type GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData = {
     instanceId: string;

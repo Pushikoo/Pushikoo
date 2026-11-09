@@ -154,7 +154,30 @@
         "message": "メッセージ",
         "noNodeExecutions": "ノード実行記録がありません",
         "executionStarted": "フロー実行を開始しました",
-        "executionFailed": "フロー実行の開始に失敗しました"
+        "executionFailed": "フロー実行の開始に失敗しました",
+        "failedMessages": "失敗メッセージ",
+        "retryKind": "再試行",
+        "retryAllFailed": "失敗項目をすべて再試行",
+        "retryAll": "すべて再試行",
+        "parentInstance": "親インスタンス",
+        "items": "項目",
+        "noItems": "項目がありません",
+        "stuckNode": "停止ノード",
+        "dismiss": "無視",
+        "viewRetryInstance": "再試行インスタンスを表示",
+        "noFailedMessages": "失敗メッセージはありません",
+        "mediaContent": "メディア/混合コンテンツ",
+        "retryResult": "{retried}件を再試行、{skipped}件をスキップしました",
+        "dismissResult": "{dismissed}件を無視、{skipped}件をスキップしました",
+        "itemActionFailed": "項目の操作に失敗しました",
+        "failedToLoadItems": "フロー項目の読み込みに失敗しました",
+        "itemStatus": {
+            "pending": "保留中",
+            "done": "完了",
+            "dropped": "破棄済み",
+            "failed": "失敗",
+            "retried": "再試行済み"
+        }
     },
     "crons": {
         "title": "スケジュールタスク",

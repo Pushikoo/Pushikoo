@@ -165,6 +165,8 @@
           <v-icon icon="mdi-history" class="mr-2"></v-icon>
           {{ $t('flows.executionHistory') }}
           <v-spacer></v-spacer>
+          <v-btn icon="mdi-alert-circle-outline" variant="text" size="small" @click="openFailedItems"
+            :title="$t('flows.failedMessages')" class="mr-1"></v-btn>
           <v-btn icon="mdi-refresh" variant="text" size="small" @click="loadFlowInstances" :loading="loadingHistory"
             class="mr-1"></v-btn>
           <v-btn icon="mdi-close" variant="text" size="small" @click="historyDialog = false"></v-btn>
@@ -194,10 +196,13 @@
                   <v-icon :icon="statusIcons[instance.status]" size="18"></v-icon>
                 </v-avatar>
               </template>
-              <v-list-item-title class="font-weight-medium">
+              <v-list-item-title class="font-weight-medium d-flex flex-wrap align-center ga-1">
                 <v-chip :color="statusColors[instance.status]" size="small" label variant="tonal">
                   {{ instance.status }}
                 </v-chip>
+                <v-chip v-if="instance.kind === 'retry'" color="info" size="x-small" label>{{ $t('flows.retryKind') }}</v-chip>
+                <v-chip v-for="entry in instanceCountEntries(instance)" :key="entry.status" :color="itemStatusColors[entry.status]"
+                  size="x-small" variant="tonal">{{ itemStatusLabel(entry.status) }} {{ entry.count }}</v-chip>
               </v-list-item-title>
               <v-list-item-subtitle class="text-caption mt-1">
                 {{ formatDateTime(instance.created_at) }}
@@ -276,6 +281,10 @@
           <v-icon icon="mdi-file-tree" class="mr-2"></v-icon>
           {{ $t('flows.instanceDetail') }}
           <v-spacer></v-spacer>
+          <v-btn v-if="selectedInstanceItems.some(item => item.status === 'failed')" color="error" variant="tonal"
+            size="small" prepend-icon="mdi-refresh" @click="retryInstanceFailed" :loading="itemActionLoading" class="mr-2">
+            {{ $t('flows.retryAllFailed') }}
+          </v-btn>
           <v-btn icon="mdi-refresh" variant="text" size="small" @click="refreshInstanceDetail"
             :loading="loadingInstanceDetail" class="mr-1"></v-btn>
           <v-btn icon="mdi-close" variant="text" size="small" @click="instanceDetailDialog = false"></v-btn>
@@ -288,13 +297,16 @@
           </div>
 
           <div v-else-if="selectedInstanceDetail">
-            <div class="d-flex align-center mb-4">
-              <v-chip :color="statusColors[selectedInstanceDetail.status]" size="small" label variant="tonal"
-                class="mr-2">
+            <div class="d-flex align-center flex-wrap ga-2 mb-4">
+              <v-chip :color="statusColors[selectedInstanceDetail.status]" size="small" label variant="tonal">
                 {{ selectedInstanceDetail.status }}
               </v-chip>
-              <span class="text-caption text-medium-emphasis">{{ formatDateTime(selectedInstanceDetail.created_at)
-                }}</span>
+              <v-chip v-if="selectedInstanceDetail.kind === 'retry'" color="info" size="small" label>{{ $t('flows.retryKind') }}</v-chip>
+              <v-btn v-if="selectedInstanceDetail.parent_instance_id" variant="text" size="small"
+                prepend-icon="mdi-arrow-left" @click="openInstanceDetailById(selectedInstanceDetail.parent_instance_id)">
+                {{ $t('flows.parentInstance') }}
+              </v-btn>
+              <span class="text-caption text-medium-emphasis">{{ formatDateTime(selectedInstanceDetail.created_at) }}</span>
             </div>
 
             <v-timeline density="compact" side="end" v-if="selectedInstanceDetail.node_executions.length > 0">
@@ -338,7 +350,60 @@
               <v-icon icon="mdi-information-outline" size="32" color="medium-emphasis" class="mb-2"></v-icon>
               <div class="text-body-2 text-medium-emphasis">{{ $t('flows.noNodeExecutions') }}</div>
             </div>
+
+            <v-divider class="my-4"></v-divider>
+            <h3 class="text-subtitle-1 font-weight-bold mb-3">{{ $t('flows.items') }}</h3>
+            <v-list v-if="selectedInstanceItems.length" class="bg-transparent" lines="three">
+              <v-list-item v-for="item in selectedInstanceItems" :key="item.id" class="mb-2 border rounded-lg">
+                <v-list-item-title class="d-flex align-center flex-wrap ga-2">
+                  <v-chip :color="itemStatusColors[item.status]" size="x-small" label>{{ itemStatusLabel(item.status) }}</v-chip>
+                  <span class="text-caption">{{ $t('flows.stuckNode') }}: {{ item.adapter_instance_id ? getInstanceName(item.adapter_instance_id) : '-' }}</span>
+                </v-list-item-title>
+                <v-list-item-subtitle class="mt-1 item-preview">{{ getItemPreview(item) }}</v-list-item-subtitle>
+                <v-alert v-if="item.status === 'failed' && item.last_error" type="error" variant="tonal" density="compact" class="mt-2">{{ item.last_error }}</v-alert>
+                <v-btn v-if="item.retried_by_instance_id" variant="text" size="x-small" class="mt-1"
+                  @click="openInstanceDetailById(item.retried_by_instance_id)">{{ $t('flows.viewRetryInstance') }}</v-btn>
+                <template v-if="item.status === 'failed'" v-slot:append>
+                  <div class="d-flex flex-column ga-1">
+                    <v-btn size="x-small" color="primary" variant="tonal" @click="retryItems([item.id])" :loading="itemActionLoading">{{ $t('common.retry') }}</v-btn>
+                    <v-btn size="x-small" color="warning" variant="tonal" @click="dismissItems([item.id])" :loading="itemActionLoading">{{ $t('flows.dismiss') }}</v-btn>
+                  </div>
+                </template>
+              </v-list-item>
+            </v-list>
+            <div v-else class="text-body-2 text-medium-emphasis">{{ $t('flows.noItems') }}</div>
           </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Failed Items Dialog -->
+    <v-dialog v-model="failedItemsDialog" max-width="850px" :fullscreen="$vuetify.display.smAndDown">
+      <v-card :rounded="$vuetify.display.smAndDown ? '0' : 'xl'">
+        <v-card-title class="d-flex align-center pa-4">
+          <v-icon icon="mdi-alert-circle-outline" color="error" class="mr-2"></v-icon>
+          {{ $t('flows.failedMessages') }}
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" color="primary" size="small" class="mr-2" @click="retryAllFlowFailed" :loading="itemActionLoading">{{ $t('flows.retryAll') }}</v-btn>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="failedItemsDialog = false"></v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <div class="d-flex ga-2 mb-3">
+            <v-btn :disabled="!selectedFailedItemIds.length" color="primary" variant="tonal" size="small" @click="retryItems(selectedFailedItemIds)">{{ $t('common.retry') }}</v-btn>
+            <v-btn :disabled="!selectedFailedItemIds.length" color="warning" variant="tonal" size="small" @click="dismissItems(selectedFailedItemIds)">{{ $t('flows.dismiss') }}</v-btn>
+          </div>
+          <v-list v-if="failedItems.length" class="bg-transparent">
+            <v-list-item v-for="item in failedItems" :key="item.id" class="mb-2 border rounded-lg">
+              <template v-slot:prepend><v-checkbox-btn v-model="selectedFailedItemIds" :value="item.id"></v-checkbox-btn></template>
+              <v-list-item-title>{{ getItemPreview(item) }}</v-list-item-title>
+              <v-list-item-subtitle>{{ getInstanceName(item.adapter_instance_id || '') }} · {{ formatDateTime(item.created_at) }}</v-list-item-subtitle>
+              <v-alert v-if="item.last_error" type="error" variant="tonal" density="compact" class="mt-2">{{ item.last_error }}</v-alert>
+            </v-list-item>
+          </v-list>
+          <div v-else class="text-center text-medium-emphasis py-6">{{ $t('flows.noFailedMessages') }}</div>
+          <v-pagination v-if="failedItemsTotal > failedItemsPerPage" v-model="failedItemsPage"
+            :length="Math.ceil(failedItemsTotal / failedItemsPerPage)" class="mt-3"></v-pagination>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -373,10 +438,11 @@
 <script lang="ts" setup>
 import { ref, onMounted, onActivated, inject, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceDetail, type FlowInstanceStatus } from '@/client'
+import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceDetail, type FlowInstanceStatus, type FlowItem, type FlowItemStatus } from '@/client'
 import draggable from 'vuedraggable'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { getApiErrorMessage } from '@/utils/apiErrorHelper'
+import { structAsPlainText, type Struct } from '@/utils/structRenderer'
 
 const showSnackbar = inject<(text: string, color?: string) => void>('showSnackbar', () => { })
 const { t } = useI18n()
@@ -421,6 +487,13 @@ const historyItemsPerPage = ref(10)
 const totalHistoryItems = ref(0)
 const historyOffset = computed(() => (historyPage.value - 1) * historyItemsPerPage.value)
 const statusFilter = ref<FlowInstanceStatus | ''>('')
+const failedItemsDialog = ref(false)
+const failedItems = ref<FlowItem[]>([])
+const selectedFailedItemIds = ref<string[]>([])
+const failedItemsPage = ref(1)
+const failedItemsPerPage = 10
+const failedItemsTotal = ref(0)
+const itemActionLoading = ref(false)
 
 const allStatuses: FlowInstanceStatus[] = ['waiting', 'running', 'completed', 'failed', 'cancelled']
 
@@ -439,6 +512,21 @@ const statusIcons: Record<FlowInstanceStatus, string> = {
   failed: 'mdi-close-circle-outline',
   cancelled: 'mdi-cancel'
 }
+
+const itemStatusColors: Record<FlowItemStatus, string> = {
+  pending: 'grey',
+  done: 'success',
+  dropped: 'warning',
+  failed: 'error',
+  retried: 'info'
+}
+
+const instanceCountEntries = (instance: FlowInstance) =>
+  (Object.entries(instance.item_counts) as [FlowItemStatus, number][])
+    .filter(([, count]) => count > 0)
+    .map(([status, count]) => ({ status, count }))
+
+const itemStatusLabel = (status: FlowItemStatus) => t(`flows.itemStatus.${status}`)
 
 const headers = computed(() => [
   { title: t('flows.tableHeaderName'), key: 'name', width: '200px' },
@@ -468,6 +556,10 @@ watch(historyPage, () => {
   if (historyDialog.value) {
     loadFlowInstances()
   }
+})
+
+watch(failedItemsPage, () => {
+  if (failedItemsDialog.value) loadFailedItems()
 })
 
 const loadMetadata = async () => {
@@ -666,6 +758,7 @@ const loadFlowInstances = async () => {
 // Instance Detail
 const instanceDetailDialog = ref(false)
 const selectedInstanceDetail = ref<FlowInstanceDetail | null>(null)
+const selectedInstanceItems = ref<FlowItem[]>([])
 const loadingInstanceDetail = ref(false)
 const selectedInstanceId = ref<string | null>(null)
 
@@ -674,10 +767,12 @@ const openInstanceDetail = async (instance: FlowInstance) => {
   loadingInstanceDetail.value = true
   instanceDetailDialog.value = true
   try {
-    const detail = await FlowsService.getFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGet({
-      instanceId: instance.id
-    })
+    const [detail, items] = await Promise.all([
+      FlowsService.getFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGet({ instanceId: instance.id }),
+      FlowsService.listFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGet({ instanceId: instance.id })
+    ])
     selectedInstanceDetail.value = detail
+    selectedInstanceItems.value = items
   } catch (e) {
     console.error(e)
     showSnackbar(getApiErrorMessage(e, 'Failed to load instance detail'), 'error')
@@ -685,6 +780,102 @@ const openInstanceDetail = async (instance: FlowInstance) => {
   } finally {
     loadingInstanceDetail.value = false
     selectedInstanceId.value = null
+  }
+}
+
+const openInstanceDetailById = async (instanceId: string) => {
+  await openInstanceDetail({ id: instanceId } as FlowInstance)
+}
+
+const getItemPreview = (item: FlowItem) => {
+  const value = structAsPlainText(item.content as unknown as Struct) || t('flows.mediaContent')
+  return value.length > 140 ? `${value.slice(0, 140)}…` : value
+}
+
+const refreshAfterItemAction = async () => {
+  await loadFlowInstances()
+  if (instanceDetailDialog.value && selectedInstanceDetail.value) {
+    await openInstanceDetailById(selectedInstanceDetail.value.id)
+  }
+  if (failedItemsDialog.value) await loadFailedItems()
+}
+
+const retryItems = async (itemIds: string[]) => {
+  itemActionLoading.value = true
+  try {
+    const result = await FlowsService.retryFlowItemsApiV1FlowsItemsRetryPost({ requestBody: { item_ids: itemIds } })
+    showSnackbar(t('flows.retryResult', { retried: result.retried, skipped: result.skipped }), 'success')
+    selectedFailedItemIds.value = []
+    await refreshAfterItemAction()
+  } catch (e) {
+    showSnackbar(getApiErrorMessage(e, t('flows.itemActionFailed')), 'error')
+  } finally {
+    itemActionLoading.value = false
+  }
+}
+
+const dismissItems = async (itemIds: string[]) => {
+  itemActionLoading.value = true
+  try {
+    const result = await FlowsService.dismissFlowItemsApiV1FlowsItemsDismissPost({ requestBody: { item_ids: itemIds } })
+    showSnackbar(t('flows.dismissResult', { dismissed: result.dismissed, skipped: result.skipped }), 'success')
+    selectedFailedItemIds.value = []
+    await refreshAfterItemAction()
+  } catch (e) {
+    showSnackbar(getApiErrorMessage(e, t('flows.itemActionFailed')), 'error')
+  } finally {
+    itemActionLoading.value = false
+  }
+}
+
+const retryInstanceFailed = async () => {
+  if (!selectedInstanceDetail.value) return
+  itemActionLoading.value = true
+  try {
+    const result = await FlowsService.retryFlowItemsApiV1FlowsItemsRetryPost({ requestBody: { instance_id: selectedInstanceDetail.value.id } })
+    showSnackbar(t('flows.retryResult', { retried: result.retried, skipped: result.skipped }), 'success')
+    await refreshAfterItemAction()
+  } catch (e) {
+    showSnackbar(getApiErrorMessage(e, t('flows.itemActionFailed')), 'error')
+  } finally {
+    itemActionLoading.value = false
+  }
+}
+
+const loadFailedItems = async () => {
+  if (!selectedFlowForHistory.value) return
+  const response = await FlowsService.listFlowItemsApiV1FlowsItemsGet({
+    flowId: selectedFlowForHistory.value.id,
+    status: 'failed',
+    limit: failedItemsPerPage,
+    offset: (failedItemsPage.value - 1) * failedItemsPerPage
+  })
+  failedItems.value = response.items
+  failedItemsTotal.value = response.total
+}
+
+const openFailedItems = async () => {
+  failedItemsPage.value = 1
+  selectedFailedItemIds.value = []
+  failedItemsDialog.value = true
+  try {
+    await loadFailedItems()
+  } catch (e) {
+    showSnackbar(getApiErrorMessage(e, t('flows.failedToLoadItems')), 'error')
+  }
+}
+
+const retryAllFlowFailed = async () => {
+  if (!selectedFlowForHistory.value) return
+  itemActionLoading.value = true
+  try {
+    const result = await FlowsService.retryFlowItemsApiV1FlowsItemsRetryPost({ requestBody: { flow_id: selectedFlowForHistory.value.id } })
+    showSnackbar(t('flows.retryResult', { retried: result.retried, skipped: result.skipped }), 'success')
+    await refreshAfterItemAction()
+  } catch (e) {
+    showSnackbar(getApiErrorMessage(e, t('flows.itemActionFailed')), 'error')
+  } finally {
+    itemActionLoading.value = false
   }
 }
 
@@ -739,6 +930,11 @@ const formatDuration = (startTime: string, endTime: string) => {
 
 .flow-node-drag {
   opacity: 0.95;
+}
+
+.item-preview {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .flow-nodes-card {

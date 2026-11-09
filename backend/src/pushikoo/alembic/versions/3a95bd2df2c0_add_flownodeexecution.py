@@ -11,7 +11,6 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 import sqlmodel
-import pushikoo
 import sqlalchemy_utc
 
 # revision identifiers, used by Alembic.

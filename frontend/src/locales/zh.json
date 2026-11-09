@@ -154,7 +154,30 @@
         "message": "消息",
         "noNodeExecutions": "无节点执行记录",
         "executionStarted": "流程执行已启动",
-        "executionFailed": "启动流程执行失败"
+        "executionFailed": "启动流程执行失败",
+        "failedMessages": "失败消息",
+        "retryKind": "重试",
+        "retryAllFailed": "重试全部失败条目",
+        "retryAll": "全部重试",
+        "parentInstance": "父实例",
+        "items": "条目",
+        "noItems": "无条目",
+        "stuckNode": "卡住节点",
+        "dismiss": "忽略",
+        "viewRetryInstance": "查看重试实例",
+        "noFailedMessages": "没有失败消息",
+        "mediaContent": "媒体/混合内容",
+        "retryResult": "已重试 {retried} 条，跳过 {skipped} 条",
+        "dismissResult": "已忽略 {dismissed} 条，跳过 {skipped} 条",
+        "itemActionFailed": "条目操作失败",
+        "failedToLoadItems": "加载流程条目失败",
+        "itemStatus": {
+            "pending": "待处理",
+            "done": "完成",
+            "dropped": "已丢弃",
+            "failed": "失败",
+            "retried": "已重试"
+        }
     },
     "crons": {
         "title": "定时任务",

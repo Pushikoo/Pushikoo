@@ -11,6 +11,12 @@ from pushikoo.model.flow import (
     FlowInstanceListFilter,
     FlowInstanceOrder,
     FlowInstanceStatus,
+    FlowItem,
+    FlowItemActionRequest,
+    FlowItemDismissResponse,
+    FlowItemListFilter,
+    FlowItemRetryResponse,
+    FlowItemStatus,
     FlowListFilter,
     FlowUpdate,
 )
@@ -18,10 +24,11 @@ from pushikoo.model.pagination import Page
 from pushikoo.service.refresh import (
     FlowInstanceRunner,
     FlowInstanceService,
+    FlowItemService,
     FlowNodeExecutionService,
     FlowService,
 )
-from pushikoo.service.base import NotFoundException
+from pushikoo.service.base import InvalidInputException, NotFoundException
 
 
 router = APIRouter(prefix="/flows", tags=["flows"])
@@ -64,6 +71,54 @@ def list_flow_instances(
     return FlowInstanceService.list_(filter_obj)
 
 
+@router.get("/items")
+def list_flow_items(
+    flow_id: UUID | None = None,
+    instance_id: UUID | None = None,
+    status: FlowItemStatus | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Page[FlowItem]:
+    return FlowItemService.list_(
+        FlowItemListFilter(
+            flow_id=flow_id,
+            instance_id=instance_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+
+@router.post("/items/retry")
+def retry_flow_items(payload: FlowItemActionRequest) -> FlowItemRetryResponse:
+    try:
+        return FlowItemService.retry(payload)
+    except InvalidInputException as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+
+
+@router.post("/items/dismiss")
+def dismiss_flow_items(payload: FlowItemActionRequest) -> FlowItemDismissResponse:
+    try:
+        return FlowItemService.dismiss(payload)
+    except InvalidInputException as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        )
+
+
+@router.get("/instances/{instance_id}/items")
+def list_flow_instance_items(instance_id: UUID) -> list[FlowItem]:
+    try:
+        FlowInstanceService.get(instance_id)
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return FlowItemService.list_by_instance(instance_id)
+
+
 @router.get("/instances/{instance_id}")
 def get_flow_instance(instance_id: UUID) -> FlowInstance:
     try:
@@ -89,12 +144,7 @@ def get_flow_instance_detail(instance_id: UUID) -> FlowInstanceDetail:
     node_executions = FlowNodeExecutionService.list_by_instance(instance_id)
 
     return FlowInstanceDetail(
-        id=instance.id,
-        flow_id=instance.flow_id,
-        status=instance.status,
-        nodes=instance.nodes,
-        cursor=instance.cursor,
-        created_at=instance.created_at,
+        **instance.model_dump(),
         node_executions=node_executions,
     )
 

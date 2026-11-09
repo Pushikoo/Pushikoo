@@ -154,7 +154,30 @@
         "message": "Message",
         "noNodeExecutions": "No node executions recorded",
         "executionStarted": "Flow execution started",
-        "executionFailed": "Failed to start flow execution"
+        "executionFailed": "Failed to start flow execution",
+        "failedMessages": "Failed Messages",
+        "retryKind": "retry",
+        "retryAllFailed": "Retry all failed",
+        "retryAll": "Retry all",
+        "parentInstance": "Parent instance",
+        "items": "Items",
+        "noItems": "No items",
+        "stuckNode": "Node",
+        "dismiss": "Dismiss",
+        "viewRetryInstance": "View retry instance",
+        "noFailedMessages": "No failed messages",
+        "mediaContent": "Media/Mixed Content",
+        "retryResult": "Retried {retried}; skipped {skipped}",
+        "dismissResult": "Dismissed {dismissed}; skipped {skipped}",
+        "itemActionFailed": "Item operation failed",
+        "failedToLoadItems": "Failed to load flow items",
+        "itemStatus": {
+            "pending": "pending",
+            "done": "done",
+            "dropped": "dropped",
+            "failed": "failed",
+            "retried": "retried"
+        }
     },
     "crons": {
         "title": "Scheduled Tasks",

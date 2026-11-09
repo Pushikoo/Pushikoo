@@ -300,6 +300,21 @@ export const FlowInstanceSchema = {
         status: {
             '$ref': '#/components/schemas/FlowInstanceStatus'
         },
+        kind: {
+            '$ref': '#/components/schemas/FlowInstanceKind'
+        },
+        parent_instance_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Instance Id'
+        },
         nodes: {
             items: {
                 type: 'string',
@@ -316,10 +331,13 @@ export const FlowInstanceSchema = {
             type: 'string',
             format: 'date-time',
             title: 'Created At'
+        },
+        item_counts: {
+            '$ref': '#/components/schemas/FlowItemCounts'
         }
     },
     type: 'object',
-    required: ['id', 'flow_id', 'status', 'nodes', 'cursor', 'created_at'],
+    required: ['id', 'flow_id', 'status', 'kind', 'parent_instance_id', 'nodes', 'cursor', 'created_at', 'item_counts'],
     title: 'FlowInstance'
 } as const;
 
@@ -338,6 +356,21 @@ export const FlowInstanceDetailSchema = {
         status: {
             '$ref': '#/components/schemas/FlowInstanceStatus'
         },
+        kind: {
+            '$ref': '#/components/schemas/FlowInstanceKind'
+        },
+        parent_instance_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Parent Instance Id'
+        },
         nodes: {
             items: {
                 type: 'string',
@@ -355,6 +388,9 @@ export const FlowInstanceDetailSchema = {
             format: 'date-time',
             title: 'Created At'
         },
+        item_counts: {
+            '$ref': '#/components/schemas/FlowItemCounts'
+        },
         node_executions: {
             items: {
                 '$ref': '#/components/schemas/FlowNodeExecution'
@@ -364,9 +400,15 @@ export const FlowInstanceDetailSchema = {
         }
     },
     type: 'object',
-    required: ['id', 'flow_id', 'status', 'nodes', 'cursor', 'created_at', 'node_executions'],
+    required: ['id', 'flow_id', 'status', 'kind', 'parent_instance_id', 'nodes', 'cursor', 'created_at', 'item_counts', 'node_executions'],
     title: 'FlowInstanceDetail',
     description: 'FlowInstance with execution details for each node.'
+} as const;
+
+export const FlowInstanceKindSchema = {
+    type: 'string',
+    enum: ['normal', 'retry'],
+    title: 'FlowInstanceKind'
 } as const;
 
 export const FlowInstanceOrderSchema = {
@@ -379,6 +421,229 @@ export const FlowInstanceStatusSchema = {
     type: 'string',
     enum: ['waiting', 'running', 'completed', 'failed', 'cancelled'],
     title: 'FlowInstanceStatus'
+} as const;
+
+export const FlowItemSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        instance_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Instance Id'
+        },
+        message_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Message Id'
+        },
+        content: {
+            additionalProperties: true,
+            type: 'object',
+            title: 'Content'
+        },
+        cursor: {
+            type: 'integer',
+            title: 'Cursor'
+        },
+        status: {
+            '$ref': '#/components/schemas/FlowItemStatus'
+        },
+        last_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Error'
+        },
+        retried_by: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Retried By'
+        },
+        retried_by_instance_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Retried By Instance Id'
+        },
+        adapter_instance_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Adapter Instance Id'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        updated_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Updated At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'instance_id', 'message_id', 'content', 'cursor', 'status', 'last_error', 'retried_by', 'adapter_instance_id', 'created_at', 'updated_at'],
+    title: 'FlowItem'
+} as const;
+
+export const FlowItemActionRequestSchema = {
+    properties: {
+        item_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Ids'
+        },
+        instance_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Instance Id'
+        },
+        flow_id: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Flow Id'
+        }
+    },
+    type: 'object',
+    title: 'FlowItemActionRequest'
+} as const;
+
+export const FlowItemCountsSchema = {
+    properties: {
+        pending: {
+            type: 'integer',
+            title: 'Pending',
+            default: 0
+        },
+        done: {
+            type: 'integer',
+            title: 'Done',
+            default: 0
+        },
+        dropped: {
+            type: 'integer',
+            title: 'Dropped',
+            default: 0
+        },
+        failed: {
+            type: 'integer',
+            title: 'Failed',
+            default: 0
+        },
+        retried: {
+            type: 'integer',
+            title: 'Retried',
+            default: 0
+        }
+    },
+    type: 'object',
+    title: 'FlowItemCounts'
+} as const;
+
+export const FlowItemDismissResponseSchema = {
+    properties: {
+        dismissed: {
+            type: 'integer',
+            title: 'Dismissed'
+        },
+        skipped: {
+            type: 'integer',
+            title: 'Skipped'
+        }
+    },
+    type: 'object',
+    required: ['dismissed', 'skipped'],
+    title: 'FlowItemDismissResponse'
+} as const;
+
+export const FlowItemRetryResponseSchema = {
+    properties: {
+        retried: {
+            type: 'integer',
+            title: 'Retried'
+        },
+        skipped: {
+            type: 'integer',
+            title: 'Skipped'
+        },
+        instance_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Instance Ids'
+        }
+    },
+    type: 'object',
+    required: ['retried', 'skipped', 'instance_ids'],
+    title: 'FlowItemRetryResponse'
+} as const;
+
+export const FlowItemStatusSchema = {
+    type: 'string',
+    enum: ['pending', 'done', 'dropped', 'failed', 'retried'],
+    title: 'FlowItemStatus'
 } as const;
 
 export const FlowNodeExecutionSchema = {
@@ -755,6 +1020,47 @@ export const Page_FlowInstance_Schema = {
     type: 'object',
     required: ['items', 'total', 'limit', 'offset'],
     title: 'Page[FlowInstance]'
+} as const;
+
+export const Page_FlowItem_Schema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/FlowItem'
+            },
+            type: 'array',
+            title: 'Items'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        limit: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Limit'
+        },
+        offset: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Offset'
+        }
+    },
+    type: 'object',
+    required: ['items', 'total', 'limit', 'offset'],
+    title: 'Page[FlowItem]'
 } as const;
 
 export const Page_Flow_Schema = {

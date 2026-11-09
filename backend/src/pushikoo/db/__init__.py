@@ -67,6 +67,10 @@ class FlowInstance(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     flow_id: uuid.UUID = Field(foreign_key="flow.id")
     status: str
+    kind: str = Field(default="normal")
+    parent_instance_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="flowinstance.id"
+    )
     nodes: list[str] = Field(
         default_factory=list, sa_column=Column(JSONField, nullable=False)
     )
@@ -134,6 +138,7 @@ class FlowItem(SQLModel, table=True):
     cursor: int
     status: str
     last_error: Optional[str] = None
+    retried_by: Optional[uuid.UUID] = Field(default=None, foreign_key="flowitem.id")
     created_at: datetime.datetime = Field(
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
         sa_column=Column(UtcDateTime(), nullable=False),

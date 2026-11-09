@@ -36,9 +36,16 @@ from pushikoo.model.cron import Cron, CronCreate, CronListFilter, CronUpdate
 from pushikoo.model.flow import (
     Flow,
     FlowCreate,
+    FlowInstanceKind,
     FlowInstanceListFilter,
     FlowInstanceOrder,
     FlowInstanceStatus,
+    FlowItem,
+    FlowItemActionRequest,
+    FlowItemCounts,
+    FlowItemDismissResponse,
+    FlowItemListFilter,
+    FlowItemRetryResponse,
     FlowItemStatus,
     FlowListFilter,
     FlowUpdate,
@@ -205,15 +212,48 @@ class FlowService:
 
 class FlowInstanceService:
     @staticmethod
-    def _to_model(instance_db: FlowInstanceDB) -> FlowInstanceModel:
+    def _empty_counts() -> dict[str, int]:
+        return {status.value: 0 for status in FlowItemStatus}
+
+    @staticmethod
+    def _to_model(
+        instance_db: FlowInstanceDB, counts: dict[str, int] | None = None
+    ) -> FlowInstanceModel:
         return FlowInstanceModel(
             id=instance_db.id,
             flow_id=instance_db.flow_id,
             status=FlowInstanceStatus(instance_db.status),
+            kind=FlowInstanceKind(instance_db.kind),
+            parent_instance_id=instance_db.parent_instance_id,
             nodes=list(instance_db.nodes or []),
             cursor=instance_db.cursor,
             created_at=instance_db.created_at,
+            item_counts=FlowItemCounts(
+                **(counts or FlowInstanceService._empty_counts())
+            ),
         )
+
+    @staticmethod
+    def _counts_for(session, instance_ids: list[UUID]) -> dict[UUID, dict[str, int]]:
+        counts = {
+            instance_id: FlowInstanceService._empty_counts()
+            for instance_id in instance_ids
+        }
+        if not instance_ids:
+            return counts
+        rows = session.exec(
+            select(
+                FlowItemDB.flow_instance_id,
+                FlowItemDB.status,
+                func.count(FlowItemDB.id),
+            )
+            .where(FlowItemDB.flow_instance_id.in_(instance_ids))
+            .group_by(FlowItemDB.flow_instance_id, FlowItemDB.status)
+        ).all()
+        for instance_id, status, count in rows:
+            if status in counts[instance_id]:
+                counts[instance_id][status] = count
+        return counts
 
     @staticmethod
     def create(
@@ -265,7 +305,8 @@ class FlowInstanceService:
             if not instance_db:
                 raise NotFoundException("Flow instance not found")
 
-            return FlowInstanceService._to_model(instance_db)
+            counts = FlowInstanceService._counts_for(session, [instance_db.id])
+            return FlowInstanceService._to_model(instance_db, counts[instance_db.id])
 
     @staticmethod
     def list_(filter: FlowInstanceListFilter) -> Page[FlowInstanceModel]:
@@ -294,7 +335,8 @@ class FlowInstanceService:
                 if filter.limit is not None:
                     q = q.limit(apply_page_limit(filter.limit))
             rows = session.exec(q).all()
-            items = [FlowInstanceService._to_model(row) for row in rows]
+            counts = FlowInstanceService._counts_for(session, [row.id for row in rows])
+            items = [FlowInstanceService._to_model(row, counts[row.id]) for row in rows]
 
             return Page(
                 items=items,
@@ -305,21 +347,47 @@ class FlowInstanceService:
 
     @staticmethod
     def prune(seconds: int) -> int:
-        """Delete old flow items and then their FlowInstance records."""
+        """Delete old instances unless they still contain a failed item."""
         cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
             seconds=seconds
         )
         with get_session() as session:
-            old_ids = select(FlowInstanceDB.id).where(
-                FlowInstanceDB.created_at < cutoff
+            failed_instance_ids = select(FlowItemDB.flow_instance_id).where(
+                FlowItemDB.status == FlowItemStatus.FAILED.value
+            )
+            old_ids = list(
+                session.exec(
+                    select(FlowInstanceDB.id).where(
+                        FlowInstanceDB.created_at < cutoff,
+                        FlowInstanceDB.id.not_in(failed_instance_ids),
+                    )
+                ).all()
+            )
+            if not old_ids:
+                return 0
+            session.execute(
+                update(FlowInstanceDB)
+                .where(FlowInstanceDB.parent_instance_id.in_(old_ids))
+                .values(parent_instance_id=None)
+            )
+            old_item_ids = select(FlowItemDB.id).where(
+                FlowItemDB.flow_instance_id.in_(old_ids)
             )
             session.execute(
-                delete(FlowItemDB).where(
-                    FlowItemDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
+                update(FlowItemDB)
+                .where(FlowItemDB.retried_by.in_(old_item_ids))
+                .values(retried_by=None)
+            )
+            session.execute(
+                delete(FlowItemDB).where(FlowItemDB.flow_instance_id.in_(old_ids))
+            )
+            session.execute(
+                delete(FlowNodeExecutionDB).where(
+                    FlowNodeExecutionDB.flow_instance_id.in_(old_ids)
                 )
             )
             result = session.execute(
-                delete(FlowInstanceDB).where(FlowInstanceDB.created_at < cutoff)
+                delete(FlowInstanceDB).where(FlowInstanceDB.id.in_(old_ids))
             )
             session.commit()
             return result.rowcount  # type: ignore[return-value]
@@ -363,27 +431,276 @@ class FlowInstanceService:
         return len(instance_ids)
 
 
+class FlowItemService:
+    @staticmethod
+    def _validate_action(payload: FlowItemActionRequest) -> None:
+        if (
+            not payload.item_ids
+            and payload.instance_id is None
+            and payload.flow_id is None
+        ):
+            raise InvalidInputException("At least one item selector is required")
+
+    @staticmethod
+    def _query(filter: FlowItemListFilter | FlowItemActionRequest):
+        q = select(FlowItemDB).join(
+            FlowInstanceDB, FlowInstanceDB.id == FlowItemDB.flow_instance_id
+        )
+        if getattr(filter, "item_ids", None):
+            q = q.where(FlowItemDB.id.in_(filter.item_ids))
+        if filter.instance_id is not None:
+            q = q.where(FlowItemDB.flow_instance_id == filter.instance_id)
+        if filter.flow_id is not None:
+            q = q.where(FlowInstanceDB.flow_id == filter.flow_id)
+        status = getattr(filter, "status", None)
+        if status is not None:
+            q = q.where(FlowItemDB.status == status.value)
+        return q
+
+    @staticmethod
+    def _to_model(
+        item: FlowItemDB,
+        instance: FlowInstanceDB,
+        retried_instances: dict[UUID, UUID],
+    ) -> FlowItem:
+        nodes = list(instance.nodes or [])
+        adapter_instance_id = (
+            UUID(nodes[item.cursor]) if 0 <= item.cursor < len(nodes) else None
+        )
+        return FlowItem(
+            id=item.id,
+            instance_id=item.flow_instance_id,
+            message_id=item.message_id,
+            content=item.content,
+            cursor=item.cursor,
+            status=FlowItemStatus(item.status),
+            last_error=item.last_error,
+            retried_by=item.retried_by,
+            retried_by_instance_id=retried_instances.get(item.retried_by),
+            adapter_instance_id=adapter_instance_id,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+
+    @staticmethod
+    def list_(filter: FlowItemListFilter) -> Page[FlowItem]:
+        with get_session() as session:
+            base = FlowItemService._query(filter)
+            total = session.exec(
+                select(func.count()).select_from(base.subquery())
+            ).one()
+            q = base.order_by(FlowItemDB.created_at.desc(), FlowItemDB.id.desc())
+            if filter.offset is not None:
+                q = q.offset(filter.offset)
+            if filter.limit is not None:
+                q = q.limit(apply_page_limit(filter.limit))
+            rows = list(session.exec(q).all())
+            instances = (
+                {
+                    row.id: row
+                    for row in session.exec(
+                        select(FlowInstanceDB).where(
+                            FlowInstanceDB.id.in_(
+                                {item.flow_instance_id for item in rows}
+                            )
+                        )
+                    ).all()
+                }
+                if rows
+                else {}
+            )
+            retried_ids = {item.retried_by for item in rows if item.retried_by}
+            retried_instances = (
+                {
+                    item_id: instance_id
+                    for item_id, instance_id in session.exec(
+                        select(FlowItemDB.id, FlowItemDB.flow_instance_id).where(
+                            FlowItemDB.id.in_(retried_ids)
+                        )
+                    ).all()
+                }
+                if retried_ids
+                else {}
+            )
+            return Page(
+                items=[
+                    FlowItemService._to_model(
+                        item, instances[item.flow_instance_id], retried_instances
+                    )
+                    for item in rows
+                ],
+                total=total,
+                limit=filter.limit,
+                offset=filter.offset,
+            )
+
+    @staticmethod
+    def list_by_instance(instance_id: UUID) -> list[FlowItem]:
+        return FlowItemService.list_(FlowItemListFilter(instance_id=instance_id)).items
+
+    @staticmethod
+    def retry(payload: FlowItemActionRequest) -> FlowItemRetryResponse:
+        FlowItemService._validate_action(payload)
+        new_instance_ids: list[UUID] = []
+        retried = 0
+        with get_session() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            selected = list(session.exec(FlowItemService._query(payload)).all())
+            instance_ids = {item.flow_instance_id for item in selected}
+            instances = (
+                {
+                    row.id: row
+                    for row in session.exec(
+                        select(FlowInstanceDB).where(
+                            FlowInstanceDB.id.in_(instance_ids)
+                        )
+                    ).all()
+                }
+                if instance_ids
+                else {}
+            )
+            ended = {
+                FlowInstanceStatus.COMPLETED.value,
+                FlowInstanceStatus.FAILED.value,
+            }
+            grouped: dict[UUID, list[FlowItemDB]] = {}
+            for item in selected:
+                instance = instances[item.flow_instance_id]
+                if (
+                    item.status == FlowItemStatus.FAILED.value
+                    and instance.status in ended
+                ):
+                    grouped.setdefault(instance.id, []).append(item)
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for parent_id, items in grouped.items():
+                parent = instances[parent_id]
+                retry_instance = FlowInstanceDB(
+                    flow_id=parent.flow_id,
+                    status=FlowInstanceStatus.WAITING.value,
+                    kind=FlowInstanceKind.RETRY.value,
+                    parent_instance_id=parent.id,
+                    nodes=list(parent.nodes or []),
+                    cursor=min(item.cursor for item in items),
+                    created_at=now,
+                )
+                session.add(retry_instance)
+                session.flush()
+                copied = 0
+                for item in items:
+                    copied_item = FlowItemDB(
+                        flow_instance_id=retry_instance.id,
+                        message_id=item.message_id,
+                        content=item.content,
+                        cursor=item.cursor,
+                        status=FlowItemStatus.PENDING.value,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    session.add(copied_item)
+                    session.flush()
+                    result = session.execute(
+                        update(FlowItemDB)
+                        .where(
+                            FlowItemDB.id == item.id,
+                            FlowItemDB.status == FlowItemStatus.FAILED.value,
+                        )
+                        .values(
+                            status=FlowItemStatus.RETRIED.value,
+                            retried_by=copied_item.id,
+                            updated_at=now,
+                        )
+                    )
+                    if result.rowcount:
+                        copied += 1
+                    else:
+                        session.delete(copied_item)
+                if copied:
+                    retried += copied
+                    new_instance_ids.append(retry_instance.id)
+                else:
+                    session.delete(retry_instance)
+            session.commit()
+
+        for instance_id in new_instance_ids:
+            FlowInstanceRunner.resume(instance_id).do()
+        return FlowItemRetryResponse(
+            retried=retried,
+            skipped=len(selected) - retried,
+            instance_ids=new_instance_ids,
+        )
+
+    @staticmethod
+    def dismiss(payload: FlowItemActionRequest) -> FlowItemDismissResponse:
+        FlowItemService._validate_action(payload)
+        with get_session() as session:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            selected = list(session.exec(FlowItemService._query(payload)).all())
+            instance_ids = {item.flow_instance_id for item in selected}
+            ended_ids = (
+                set(
+                    session.exec(
+                        select(FlowInstanceDB.id).where(
+                            FlowInstanceDB.id.in_(instance_ids),
+                            FlowInstanceDB.status.in_(
+                                [
+                                    FlowInstanceStatus.COMPLETED.value,
+                                    FlowInstanceStatus.FAILED.value,
+                                ]
+                            ),
+                        )
+                    ).all()
+                )
+                if instance_ids
+                else set()
+            )
+            eligible_ids = [
+                item.id
+                for item in selected
+                if item.status == FlowItemStatus.FAILED.value
+                and item.flow_instance_id in ended_ids
+            ]
+            now = datetime.datetime.now(datetime.timezone.utc)
+            result = (
+                session.execute(
+                    update(FlowItemDB)
+                    .where(
+                        FlowItemDB.id.in_(eligible_ids),
+                        FlowItemDB.status == FlowItemStatus.FAILED.value,
+                    )
+                    .values(status=FlowItemStatus.DROPPED.value, updated_at=now)
+                )
+                if eligible_ids
+                else None
+            )
+            dismissed = result.rowcount if result is not None else 0
+            session.commit()
+            return FlowItemDismissResponse(
+                dismissed=dismissed,
+                skipped=len(selected) - dismissed,
+            )
+
+
 class FlowNodeExecutionService:
     """Service for managing FlowNodeExecution records."""
 
     @staticmethod
     def prune(seconds: int) -> int:
-        """Delete FlowNodeExecution records whose FlowInstance is older than *seconds*."""
+        """Delete old node executions unless their instance has a failed item."""
         cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
             seconds=seconds
         )
         with get_session() as session:
-            old_ids = select(FlowInstanceDB.id).where(
-                FlowInstanceDB.created_at < cutoff
+            failed_instance_ids = select(FlowItemDB.flow_instance_id).where(
+                FlowItemDB.status == FlowItemStatus.FAILED.value
             )
-            session.execute(
-                delete(FlowItemDB).where(
-                    FlowItemDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
-                )
+            old_ids = select(FlowInstanceDB.id).where(
+                FlowInstanceDB.created_at < cutoff,
+                FlowInstanceDB.id.not_in(failed_instance_ids),
             )
             result = session.execute(
                 delete(FlowNodeExecutionDB).where(
-                    FlowNodeExecutionDB.flow_instance_id.in_(old_ids)  # type: ignore[union-attr]
+                    FlowNodeExecutionDB.flow_instance_id.in_(old_ids)
                 )
             )
             session.commit()
@@ -897,9 +1214,7 @@ class FlowInstanceRunner:
                 )
         return len(items), succeeded, failed
 
-    def _execute_pusher(
-        self, pusher: Pusher, node_index: int
-    ) -> tuple[int, int, int]:
+    def _execute_pusher(self, pusher: Pusher, node_index: int) -> tuple[int, int, int]:
         items = self._pending_items(node_index)
         succeeded = 0
         failed = 0
@@ -1031,17 +1346,22 @@ class FlowInstanceRunner:
                 error_message = None
                 if isinstance(node_obj, Getter):
                     existing = self._advance_items(node_index)
-                    try:
-                        created = self._execute_getter(node_obj, node_index)
-                        items_out = existing + created
-                        node_message = f"Retrieved {created} items"
-                    except Exception as ex:
-                        node_failed = True
-                        error_message = str(ex)
-                        items_out = existing
-                        logger.warning(
-                            f"Getter {adapter_instance_id} failed; continuing: {ex}"
-                        )
+                    created = 0
+                    if instance.kind == FlowInstanceKind.NORMAL:
+                        try:
+                            created = self._execute_getter(node_obj, node_index)
+                        except Exception as ex:
+                            node_failed = True
+                            error_message = str(ex)
+                            logger.warning(
+                                f"Getter {adapter_instance_id} failed; continuing: {ex}"
+                            )
+                    items_out = existing + created
+                    node_message = (
+                        f"Released {existing} retry items"
+                        if instance.kind == FlowInstanceKind.RETRY
+                        else f"Retrieved {created} items"
+                    )
                 elif isinstance(node_obj, Processer):
                     items_in, items_out, failed = self._execute_processer(
                         node_obj, node_index
