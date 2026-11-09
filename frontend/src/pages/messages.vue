@@ -10,10 +10,14 @@
               {{ $t('messages.description') }}
             </p>
           </div>
-          <v-btn color="primary" :icon="$vuetify.display.xs" @click="refreshData" :loading="loading">
-            <v-icon icon="mdi-refresh"></v-icon>
-            <span class="d-none d-sm-inline ml-2">{{ $t('common.refresh') }}</span>
-          </v-btn>
+          <div class="d-flex ga-2">
+            <v-btn color="primary" variant="tonal" prepend-icon="mdi-send" :disabled="!selectedMessageIds.length"
+              @click="openMessageSend(selectedMessageIds)">{{ $t('manualSend.sendSelected') }}</v-btn>
+            <v-btn color="primary" :icon="$vuetify.display.xs" @click="refreshData" :loading="loading">
+              <v-icon icon="mdi-refresh"></v-icon>
+              <span class="d-none d-sm-inline ml-2">{{ $t('common.refresh') }}</span>
+            </v-btn>
+          </div>
         </div>
       </v-col>
     </v-row>
@@ -54,8 +58,8 @@
           <v-card-text v-if="initialLoading" class="pa-0">
             <LoadingSpinner :text="$t('messages.loadingMessages')" />
           </v-card-text>
-          <v-data-table-server v-show="!initialLoading" v-model:items-per-page="itemsPerPage" :headers="headers"
-            :items="items" :items-length="totalItems" :loading="loading" @update:options="loadItems"
+          <v-data-table-server v-show="!initialLoading" v-model="selectedMessageIds" v-model:items-per-page="itemsPerPage" :headers="headers"
+            :items="items" item-value="id" show-select :return-object="false" :items-length="totalItems" :loading="loading" @update:options="loadItems"
             :items-per-page-text="$t('common.itemsPerPage')" :items-per-page-options="[10, 25, 50, 100]"
             class="elevation-0">
             <template v-slot:item.ts="{ item }">
@@ -85,6 +89,7 @@
 
             <template v-slot:item.actions="{ item }">
               <div class="d-flex flex-nowrap text-no-wrap">
+                <v-btn icon="mdi-send" variant="text" size="small" color="primary" :title="$t('manualSend.sendTo')" @click="openMessageSend([item.id])" />
                 <v-btn icon="mdi-eye-outline" variant="text" size="small" color="primary" @click="viewItem(item)" />
                 <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="deleteItem(item)" />
               </div>
@@ -101,6 +106,36 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card class="card-outlined">
+          <v-card-title class="d-flex align-center">
+            {{ $t('messages.manualRecords') }}
+            <v-spacer />
+            <v-btn icon="mdi-refresh" variant="text" :loading="loadingManualRecords" @click="loadManualRecords" />
+          </v-card-title>
+          <v-list v-if="manualRecords.length" class="bg-transparent">
+            <v-list-item v-for="record in manualRecords" :key="record.instance.id" class="mx-2 mb-2 border rounded-lg">
+              <v-list-item-title class="d-flex flex-wrap align-center ga-2">
+                <v-chip size="small" :color="record.instance.status === 'failed' ? 'error' : record.instance.status === 'completed' ? 'success' : 'info'" variant="tonal">{{ record.instance.status }}</v-chip>
+                <v-chip v-if="record.instance.kind === 'retry'" size="x-small" color="info">{{ $t('flows.retryKind') }}</v-chip>
+                <span class="text-caption">{{ formatDateTime(record.instance.created_at) }}</span>
+              </v-list-item-title>
+              <div v-for="item in record.items" :key="item.id" class="d-flex align-center ga-2 mt-2">
+                <v-chip size="x-small" :color="item.status === 'failed' ? 'error' : item.status === 'done' ? 'success' : 'grey'">{{ $t(`flows.itemStatus.${item.status}`) }}</v-chip>
+                <span class="text-caption text-truncate flex-grow-1">{{ manualItemPreview(item) }}</span>
+                <v-btn v-if="item.status === 'failed'" size="x-small" variant="tonal" color="primary" @click="retryManualItem(item.id)">{{ $t('common.retry') }}</v-btn>
+                <v-btn v-if="item.status === 'failed'" size="x-small" variant="tonal" color="warning" @click="dismissManualItem(item.id)">{{ $t('flows.dismiss') }}</v-btn>
+              </div>
+            </v-list-item>
+          </v-list>
+          <div v-else class="text-center text-medium-emphasis py-8">{{ $t('messages.noManualRecords') }}</div>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <ManualSendDialog v-model="manualSendDialog" :message-ids="sendMessageIds" @created="handleManualCreated" />
 
     <!-- View Dialog -->
     <v-dialog v-model="dialog" max-width="800px" scrollable :fullscreen="$vuetify.display.smAndDown">
@@ -207,8 +242,9 @@
 <script lang="ts" setup>
 import { ref, onActivated, inject, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { MessagesService, type Message } from '@/client'
+import { FlowsService, MessagesService, type FlowInstance, type FlowItem, type Message } from '@/client'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ManualSendDialog from '@/components/ManualSendDialog.vue'
 import { structAsMarkdown, structAsPlainText, type Struct } from '@/utils/structRenderer'
 import { marked } from 'marked'
 import { getApiErrorMessage } from '@/utils/apiErrorHelper'
@@ -232,6 +268,11 @@ const itemsPerPage = ref(10)
 const keywords = ref('')
 const identifierFilter = ref('')
 const getterFilter = ref('')
+const selectedMessageIds = ref<string[]>([])
+const manualSendDialog = ref(false)
+const sendMessageIds = ref<string[]>([])
+const manualRecords = ref<{ instance: FlowInstance; items: FlowItem[] }[]>([])
+const loadingManualRecords = ref(false)
 
 const dialog = ref(false)
 const deleteDialog = ref(false)
@@ -306,12 +347,50 @@ const loadItems = async ({ page, itemsPerPage, sortBy }: any) => {
 }
 
 const refreshData = () => {
+  selectedMessageIds.value = []
   loadItems({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] })
+  loadManualRecords()
 }
 
-onActivated(() => {
-  refreshData()
-})
+onActivated(refreshData)
+
+const openMessageSend = (ids: string[]) => {
+  sendMessageIds.value = [...ids]
+  manualSendDialog.value = true
+}
+
+const handleManualCreated = async () => {
+  selectedMessageIds.value = []
+  await loadManualRecords()
+}
+
+const formatDateTime = (value: string) => new Date(value).toLocaleString()
+const manualItemPreview = (item: FlowItem) => structAsPlainText(item.content as unknown as Struct) || t('flows.mediaContent')
+
+const loadManualRecords = async () => {
+  loadingManualRecords.value = true
+  try {
+    const response = await FlowsService.listFlowInstancesApiV1FlowsInstancesGet({ flowIdIsNull: true, limit: 20 })
+    manualRecords.value = await Promise.all(response.items.map(async instance => ({
+      instance,
+      items: await FlowsService.listFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGet({ instanceId: instance.id }),
+    })))
+  } catch (error) {
+    showSnackbar(getApiErrorMessage(error, t('messages.manualRecordsFailed')), 'error')
+  } finally {
+    loadingManualRecords.value = false
+  }
+}
+
+const retryManualItem = async (itemId: string) => {
+  await FlowsService.retryFlowItemsApiV1FlowsItemsRetryPost({ requestBody: { item_ids: [itemId] } })
+  await loadManualRecords()
+}
+
+const dismissManualItem = async (itemId: string) => {
+  await FlowsService.dismissFlowItemsApiV1FlowsItemsDismissPost({ requestBody: { item_ids: [itemId] } })
+  await loadManualRecords()
+}
 
 const getMessagePreview = (item: Message) => {
   if (!item.content?.content) return ''

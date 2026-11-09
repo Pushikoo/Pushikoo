@@ -8,6 +8,7 @@ from pushikoo.model.flow import (
     FlowExecuteRequest,
     FlowInstance,
     FlowInstanceDetail,
+    FlowInstanceKind,
     FlowInstanceListFilter,
     FlowInstanceOrder,
     FlowInstanceStatus,
@@ -19,6 +20,8 @@ from pushikoo.model.flow import (
     FlowItemStatus,
     FlowListFilter,
     FlowUpdate,
+    ManualSendRequest,
+    ManualSendResponse,
 )
 from pushikoo.model.pagination import Page
 from pushikoo.service.refresh import (
@@ -27,6 +30,7 @@ from pushikoo.service.refresh import (
     FlowItemService,
     FlowNodeExecutionService,
     FlowService,
+    ManualSendService,
 )
 from pushikoo.service.base import (
     ConflictException,
@@ -60,14 +64,18 @@ def list_flows(
 @router.get("/instances")
 def list_flow_instances(
     flow_id: UUID | None = None,
+    flow_id_is_null: bool = False,
     status: FlowInstanceStatus | None = None,
+    kind: FlowInstanceKind | None = None,
     limit: int | None = None,
     offset: int | None = None,
     order: FlowInstanceOrder = FlowInstanceOrder.CREATED_AT_DESC,
 ) -> Page[FlowInstance]:
     filter_obj = FlowInstanceListFilter(
         flow_id=flow_id,
+        flow_id_is_null=flow_id_is_null,
         status=status,
+        kind=kind,
         limit=limit,
         offset=offset,
         order=order,
@@ -80,6 +88,7 @@ def list_flow_items(
     flow_id: UUID | None = None,
     instance_id: UUID | None = None,
     status: FlowItemStatus | None = None,
+    manual_only: bool = False,
     limit: int | None = None,
     offset: int | None = None,
 ) -> Page[FlowItem]:
@@ -88,10 +97,21 @@ def list_flow_items(
             flow_id=flow_id,
             instance_id=instance_id,
             status=status,
+            manual_only=manual_only,
             limit=limit,
             offset=offset,
         )
     )
+
+
+@router.post("/manual-send", status_code=status.HTTP_201_CREATED)
+def manual_send(payload: ManualSendRequest) -> ManualSendResponse:
+    try:
+        return ManualSendService.send(payload)
+    except NotFoundException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except InvalidInputException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/items/retry")

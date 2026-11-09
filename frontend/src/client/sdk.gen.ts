@@ -3,7 +3,7 @@
 import type { CancelablePromise } from './core/CancelablePromise';
 import { OpenAPI } from './core/OpenAPI';
 import { request as __request } from './core/request';
-import type { ListAdaptersApiV1AdaptersGetResponse, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetData, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetResponse, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutData, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutResponse, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetData, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetResponse, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetData, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetResponse, CreateCronApiV1CronsPostData, CreateCronApiV1CronsPostResponse, ListCronsApiV1CronsGetData, ListCronsApiV1CronsGetResponse, UpdateCronApiV1CronsCronIdPatchData, UpdateCronApiV1CronsCronIdPatchResponse, DeleteCronApiV1CronsCronIdDeleteData, DeleteCronApiV1CronsCronIdDeleteResponse, GetFileFileAccessIdGetData, GetFileFileAccessIdGetResponse, CreateFlowApiV1FlowsPostData, CreateFlowApiV1FlowsPostResponse, ListFlowsApiV1FlowsGetData, ListFlowsApiV1FlowsGetResponse, ListFlowInstancesApiV1FlowsInstancesGetData, ListFlowInstancesApiV1FlowsInstancesGetResponse, ListFlowItemsApiV1FlowsItemsGetData, ListFlowItemsApiV1FlowsItemsGetResponse, RetryFlowItemsApiV1FlowsItemsRetryPostData, RetryFlowItemsApiV1FlowsItemsRetryPostResponse, DismissFlowItemsApiV1FlowsItemsDismissPostData, DismissFlowItemsApiV1FlowsItemsDismissPostResponse, ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetData, ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetResponse, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetResponse, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetData, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetResponse, GetFlowApiV1FlowsFlowIdGetData, GetFlowApiV1FlowsFlowIdGetResponse, UpdateFlowApiV1FlowsFlowIdPutData, UpdateFlowApiV1FlowsFlowIdPutResponse, DeleteFlowApiV1FlowsFlowIdDeleteData, DeleteFlowApiV1FlowsFlowIdDeleteResponse, ExecuteFlowApiV1FlowsFlowIdExecutePostData, ExecuteFlowApiV1FlowsFlowIdExecutePostResponse, ListInstancesApiV1InstancesGetData, ListInstancesApiV1InstancesGetResponse, CreateInstanceApiV1InstancesPostData, CreateInstanceApiV1InstancesPostResponse, DeleteInstanceApiV1InstancesInstanceIdDeleteData, DeleteInstanceApiV1InstancesInstanceIdDeleteResponse, GetInstanceConfigApiV1InstancesInstanceIdConfigGetData, GetInstanceConfigApiV1InstancesInstanceIdConfigGetResponse, SetInstanceConfigApiV1InstancesInstanceIdConfigPutData, SetInstanceConfigApiV1InstancesInstanceIdConfigPutResponse, CreateMessageApiV1MessagesPostData, CreateMessageApiV1MessagesPostResponse, ListMessagesApiV1MessagesGetData, ListMessagesApiV1MessagesGetResponse, GetMessageApiV1MessagesMessageIdGetData, GetMessageApiV1MessagesMessageIdGetResponse, DeleteMessageApiV1MessagesMessageIdDeleteData, DeleteMessageApiV1MessagesMessageIdDeleteResponse, UpdateMessageApiV1MessagesMessageIdPatchData, UpdateMessageApiV1MessagesMessageIdPatchResponse, SsoLoginApiV1OauthLoginGetResponse, SsoCallbackApiV1OauthCallbackGetResponse, InstallPackageByWhlApiV1PipPkgsWhlPostData, InstallPackageByWhlApiV1PipPkgsWhlPostResponse, InstallPackageApiV1PipPkgsSpecPostData, InstallPackageApiV1PipPkgsSpecPostResponse, UninstallPackageApiV1PipPkgsPackageNameDeleteData, UninstallPackageApiV1PipPkgsPackageNameDeleteResponse, ListIndexesApiV1PipIndexesGetData, ListIndexesApiV1PipIndexesGetResponse, GetIndexApiV1PipIndexesUrlGetData, GetIndexApiV1PipIndexesUrlGetResponse, AddIndexApiV1PipIndexesUrlPostData, AddIndexApiV1PipIndexesUrlPostResponse, DeleteIndexApiV1PipIndexesUrlDeleteData, DeleteIndexApiV1PipIndexesUrlDeleteResponse, ServeIndexGetResponse, ServeSpaFullPathGetData, ServeSpaFullPathGetResponse, GetSystemConfigApiV1SystemConfigGetResponse, SetSystemConfigApiV1SystemConfigPutData, SetSystemConfigApiV1SystemConfigPutResponse, GetSystemConfigSchemaApiV1SystemConfigSchemaGetResponse, PruneApiV1SystemPrunePostData, PruneApiV1SystemPrunePostResponse, AddRecipientApiV1WarningsRecipientsPostData, AddRecipientApiV1WarningsRecipientsPostResponse, ListRecipientsApiV1WarningsRecipientsGetData, ListRecipientsApiV1WarningsRecipientsGetResponse, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteData, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteResponse } from './types.gen';
+import type { ListAdaptersApiV1AdaptersGetResponse, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetData, GetAdapterConfigApiV1AdaptersAdapterNameConfigGetResponse, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutData, SetAdapterConfigApiV1AdaptersAdapterNameConfigPutResponse, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetData, GetAdapterConfigSchemaApiV1AdaptersAdapterNameConfigSchemaGetResponse, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetData, GetAdapterInstanceConfigSchemaApiV1AdaptersAdapterNameInstanceConfigSchemaGetResponse, CreateCronApiV1CronsPostData, CreateCronApiV1CronsPostResponse, ListCronsApiV1CronsGetData, ListCronsApiV1CronsGetResponse, UpdateCronApiV1CronsCronIdPatchData, UpdateCronApiV1CronsCronIdPatchResponse, DeleteCronApiV1CronsCronIdDeleteData, DeleteCronApiV1CronsCronIdDeleteResponse, GetFileFileAccessIdGetData, GetFileFileAccessIdGetResponse, CreateFlowApiV1FlowsPostData, CreateFlowApiV1FlowsPostResponse, ListFlowsApiV1FlowsGetData, ListFlowsApiV1FlowsGetResponse, ListFlowInstancesApiV1FlowsInstancesGetData, ListFlowInstancesApiV1FlowsInstancesGetResponse, ListFlowItemsApiV1FlowsItemsGetData, ListFlowItemsApiV1FlowsItemsGetResponse, ManualSendApiV1FlowsManualSendPostData, ManualSendApiV1FlowsManualSendPostResponse, RetryFlowItemsApiV1FlowsItemsRetryPostData, RetryFlowItemsApiV1FlowsItemsRetryPostResponse, DismissFlowItemsApiV1FlowsItemsDismissPostData, DismissFlowItemsApiV1FlowsItemsDismissPostResponse, ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetData, ListFlowInstanceItemsApiV1FlowsInstancesInstanceIdItemsGetResponse, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetData, GetFlowInstanceApiV1FlowsInstancesInstanceIdGetResponse, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetData, GetFlowInstanceDetailApiV1FlowsInstancesInstanceIdDetailGetResponse, GetFlowApiV1FlowsFlowIdGetData, GetFlowApiV1FlowsFlowIdGetResponse, UpdateFlowApiV1FlowsFlowIdPutData, UpdateFlowApiV1FlowsFlowIdPutResponse, DeleteFlowApiV1FlowsFlowIdDeleteData, DeleteFlowApiV1FlowsFlowIdDeleteResponse, ExecuteFlowApiV1FlowsFlowIdExecutePostData, ExecuteFlowApiV1FlowsFlowIdExecutePostResponse, ListInstancesApiV1InstancesGetData, ListInstancesApiV1InstancesGetResponse, CreateInstanceApiV1InstancesPostData, CreateInstanceApiV1InstancesPostResponse, DeleteInstanceApiV1InstancesInstanceIdDeleteData, DeleteInstanceApiV1InstancesInstanceIdDeleteResponse, GetInstanceConfigApiV1InstancesInstanceIdConfigGetData, GetInstanceConfigApiV1InstancesInstanceIdConfigGetResponse, SetInstanceConfigApiV1InstancesInstanceIdConfigPutData, SetInstanceConfigApiV1InstancesInstanceIdConfigPutResponse, CreateMessageApiV1MessagesPostData, CreateMessageApiV1MessagesPostResponse, ListMessagesApiV1MessagesGetData, ListMessagesApiV1MessagesGetResponse, GetMessageApiV1MessagesMessageIdGetData, GetMessageApiV1MessagesMessageIdGetResponse, DeleteMessageApiV1MessagesMessageIdDeleteData, DeleteMessageApiV1MessagesMessageIdDeleteResponse, UpdateMessageApiV1MessagesMessageIdPatchData, UpdateMessageApiV1MessagesMessageIdPatchResponse, SsoLoginApiV1OauthLoginGetResponse, SsoCallbackApiV1OauthCallbackGetResponse, InstallPackageByWhlApiV1PipPkgsWhlPostData, InstallPackageByWhlApiV1PipPkgsWhlPostResponse, InstallPackageApiV1PipPkgsSpecPostData, InstallPackageApiV1PipPkgsSpecPostResponse, UninstallPackageApiV1PipPkgsPackageNameDeleteData, UninstallPackageApiV1PipPkgsPackageNameDeleteResponse, ListIndexesApiV1PipIndexesGetData, ListIndexesApiV1PipIndexesGetResponse, GetIndexApiV1PipIndexesUrlGetData, GetIndexApiV1PipIndexesUrlGetResponse, AddIndexApiV1PipIndexesUrlPostData, AddIndexApiV1PipIndexesUrlPostResponse, DeleteIndexApiV1PipIndexesUrlDeleteData, DeleteIndexApiV1PipIndexesUrlDeleteResponse, ServeIndexGetResponse, ServeSpaFullPathGetData, ServeSpaFullPathGetResponse, GetSystemConfigApiV1SystemConfigGetResponse, SetSystemConfigApiV1SystemConfigPutData, SetSystemConfigApiV1SystemConfigPutResponse, GetSystemConfigSchemaApiV1SystemConfigSchemaGetResponse, PruneApiV1SystemPrunePostData, PruneApiV1SystemPrunePostResponse, ListWarningsApiV1WarningsGetData, ListWarningsApiV1WarningsGetResponse, RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostData, RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostResponse, AddRecipientApiV1WarningsRecipientsPostData, AddRecipientApiV1WarningsRecipientsPostResponse, ListRecipientsApiV1WarningsRecipientsGetData, ListRecipientsApiV1WarningsRecipientsGetResponse, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteData, DeleteRecipientApiV1WarningsRecipientsAdapterInstanceIdDeleteResponse } from './types.gen';
 
 export class AdaptersService {
     /**
@@ -17,7 +17,7 @@ export class AdaptersService {
             url: '/api/v1/adapters'
         });
     }
-
+    
     /**
      * Get Adapter Config
      * @param data The data for the request.
@@ -37,7 +37,7 @@ export class AdaptersService {
             }
         });
     }
-
+    
     /**
      * Set Adapter Config
      * @param data The data for the request.
@@ -60,7 +60,7 @@ export class AdaptersService {
             }
         });
     }
-
+    
     /**
      * Get Adapter Config Schema
      * @param data The data for the request.
@@ -80,7 +80,7 @@ export class AdaptersService {
             }
         });
     }
-
+    
     /**
      * Get Adapter Instance Config Schema
      * @param data The data for the request.
@@ -121,7 +121,7 @@ export class CronsService {
             }
         });
     }
-
+    
     /**
      * List Crons
      * @param data The data for the request.
@@ -149,7 +149,7 @@ export class CronsService {
             }
         });
     }
-
+    
     /**
      * Update Cron
      * @param data The data for the request.
@@ -172,7 +172,7 @@ export class CronsService {
             }
         });
     }
-
+    
     /**
      * Delete Cron
      * @param data The data for the request.
@@ -239,7 +239,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * List Flows
      * @param data The data for the request.
@@ -263,12 +263,14 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * List Flow Instances
      * @param data The data for the request.
      * @param data.flowId
+     * @param data.flowIdIsNull
      * @param data.status
+     * @param data.kind
      * @param data.limit
      * @param data.offset
      * @param data.order
@@ -281,7 +283,9 @@ export class FlowsService {
             url: '/api/v1/flows/instances',
             query: {
                 flow_id: data.flowId,
+                flow_id_is_null: data.flowIdIsNull,
                 status: data.status,
+                kind: data.kind,
                 limit: data.limit,
                 offset: data.offset,
                 order: data.order
@@ -291,13 +295,14 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * List Flow Items
      * @param data The data for the request.
      * @param data.flowId
      * @param data.instanceId
      * @param data.status
+     * @param data.manualOnly
      * @param data.limit
      * @param data.offset
      * @returns Page_FlowItem_ Successful Response
@@ -311,6 +316,7 @@ export class FlowsService {
                 flow_id: data.flowId,
                 instance_id: data.instanceId,
                 status: data.status,
+                manual_only: data.manualOnly,
                 limit: data.limit,
                 offset: data.offset
             },
@@ -319,7 +325,26 @@ export class FlowsService {
             }
         });
     }
-
+    
+    /**
+     * Manual Send
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ManualSendResponse Successful Response
+     * @throws ApiError
+     */
+    public static manualSendApiV1FlowsManualSendPost(data: ManualSendApiV1FlowsManualSendPostData): CancelablePromise<ManualSendApiV1FlowsManualSendPostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/flows/manual-send',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
     /**
      * Retry Flow Items
      * @param data The data for the request.
@@ -338,7 +363,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Dismiss Flow Items
      * @param data The data for the request.
@@ -357,7 +382,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * List Flow Instance Items
      * @param data The data for the request.
@@ -377,7 +402,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Get Flow Instance
      * @param data The data for the request.
@@ -397,7 +422,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Get Flow Instance Detail
      * Get detailed execution information for a flow instance.
@@ -418,7 +443,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Get Flow
      * @param data The data for the request.
@@ -438,7 +463,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Update Flow
      * @param data The data for the request.
@@ -461,7 +486,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Delete Flow
      * @param data The data for the request.
@@ -481,7 +506,7 @@ export class FlowsService {
             }
         });
     }
-
+    
     /**
      * Execute Flow
      * Manually trigger a flow execution with optional node exclusions.
@@ -534,7 +559,7 @@ export class InstancesService {
             }
         });
     }
-
+    
     /**
      * Create Instance
      * Create a new adapter instance.
@@ -554,7 +579,7 @@ export class InstancesService {
             }
         });
     }
-
+    
     /**
      * Delete Instance
      * Delete an adapter instance by ID.
@@ -575,7 +600,7 @@ export class InstancesService {
             }
         });
     }
-
+    
     /**
      * Get Instance Config
      * Get configuration for an adapter instance by ID.
@@ -596,7 +621,7 @@ export class InstancesService {
             }
         });
     }
-
+    
     /**
      * Set Instance Config
      * Set configuration for an adapter instance by ID.
@@ -641,7 +666,7 @@ export class MessagesService {
             }
         });
     }
-
+    
     /**
      * List Messages
      * @param data The data for the request.
@@ -677,7 +702,7 @@ export class MessagesService {
             }
         });
     }
-
+    
     /**
      * Get Message
      * @param data The data for the request.
@@ -697,7 +722,7 @@ export class MessagesService {
             }
         });
     }
-
+    
     /**
      * Delete Message
      * @param data The data for the request.
@@ -717,7 +742,7 @@ export class MessagesService {
             }
         });
     }
-
+    
     /**
      * Update Message
      * @param data The data for the request.
@@ -754,7 +779,7 @@ export class OauthV1Service {
             url: '/api/v1/oauth/login'
         });
     }
-
+    
     /**
      * Sso Callback
      * @returns unknown Successful Response
@@ -797,7 +822,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * Install Package
      * @param data The data for the request.
@@ -827,7 +852,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * Uninstall Package
      * @param data The data for the request.
@@ -847,7 +872,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * List Indexes
      * @param data The data for the request.
@@ -869,7 +894,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * Get Index
      * @param data The data for the request.
@@ -889,7 +914,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * Add Index
      * @param data The data for the request.
@@ -909,7 +934,7 @@ export class PipService {
             }
         });
     }
-
+    
     /**
      * Delete Index
      * @param data The data for the request.
@@ -943,7 +968,7 @@ export class SpaService {
             url: '/'
         });
     }
-
+    
     /**
      * Serve Spa
      * @param data The data for the request.
@@ -977,7 +1002,7 @@ export class SystemService {
             url: '/api/v1/system/config'
         });
     }
-
+    
     /**
      * Set System Config
      * @param data The data for the request.
@@ -996,7 +1021,7 @@ export class SystemService {
             }
         });
     }
-
+    
     /**
      * Get System Config Schema
      * @returns unknown Successful Response
@@ -1008,7 +1033,7 @@ export class SystemService {
             url: '/api/v1/system/config/schema'
         });
     }
-
+    
     /**
      * Prune
      * Delete FlowInstance and FlowNodeExecution records older than the given seconds.
@@ -1060,7 +1085,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Install Package
      * @param data The data for the request.
@@ -1090,7 +1115,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Uninstall Package
      * @param data The data for the request.
@@ -1110,7 +1135,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Indexes
      * @param data The data for the request.
@@ -1132,7 +1157,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Index
      * @param data The data for the request.
@@ -1152,7 +1177,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Add Index
      * @param data The data for the request.
@@ -1172,7 +1197,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Index
      * @param data The data for the request.
@@ -1192,7 +1217,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Adapters
      * @returns AdapterMeta Successful Response
@@ -1204,7 +1229,7 @@ export class V1Service {
             url: '/api/v1/adapters'
         });
     }
-
+    
     /**
      * Get Adapter Config
      * @param data The data for the request.
@@ -1224,7 +1249,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Set Adapter Config
      * @param data The data for the request.
@@ -1247,7 +1272,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Adapter Config Schema
      * @param data The data for the request.
@@ -1267,7 +1292,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Adapter Instance Config Schema
      * @param data The data for the request.
@@ -1287,7 +1312,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Instances
      * List all adapter instances with optional filtering.
@@ -1314,7 +1339,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Create Instance
      * Create a new adapter instance.
@@ -1334,7 +1359,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Instance
      * Delete an adapter instance by ID.
@@ -1355,7 +1380,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Instance Config
      * Get configuration for an adapter instance by ID.
@@ -1376,7 +1401,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Set Instance Config
      * Set configuration for an adapter instance by ID.
@@ -1400,7 +1425,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Create Message
      * @param data The data for the request.
@@ -1419,7 +1444,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Messages
      * @param data The data for the request.
@@ -1455,7 +1480,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Message
      * @param data The data for the request.
@@ -1475,7 +1500,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Message
      * @param data The data for the request.
@@ -1495,7 +1520,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Update Message
      * @param data The data for the request.
@@ -1518,7 +1543,49 @@ export class V1Service {
             }
         });
     }
-
+    
+    /**
+     * List Warnings
+     * @param data The data for the request.
+     * @param data.limit
+     * @param data.offset
+     * @returns Page_Warning_ Successful Response
+     * @throws ApiError
+     */
+    public static listWarningsApiV1WarningsGet(data: ListWarningsApiV1WarningsGetData = {}): CancelablePromise<ListWarningsApiV1WarningsGetResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/warnings',
+            query: {
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Retry Warning Delivery
+     * @param data The data for the request.
+     * @param data.deliveryId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static retryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPost(data: RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostData): CancelablePromise<RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/warnings/deliveries/{delivery_id}/retry',
+            path: {
+                delivery_id: data.deliveryId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
     /**
      * Add Recipient
      * @param data The data for the request.
@@ -1537,7 +1604,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Recipients
      * @param data The data for the request.
@@ -1559,7 +1626,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Recipient
      * @param data The data for the request.
@@ -1579,7 +1646,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Create Cron
      * @param data The data for the request.
@@ -1598,7 +1665,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Crons
      * @param data The data for the request.
@@ -1626,7 +1693,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Update Cron
      * @param data The data for the request.
@@ -1649,7 +1716,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Cron
      * @param data The data for the request.
@@ -1669,7 +1736,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get System Config
      * @returns SystemConfig Successful Response
@@ -1681,7 +1748,7 @@ export class V1Service {
             url: '/api/v1/system/config'
         });
     }
-
+    
     /**
      * Set System Config
      * @param data The data for the request.
@@ -1700,7 +1767,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get System Config Schema
      * @returns unknown Successful Response
@@ -1712,7 +1779,7 @@ export class V1Service {
             url: '/api/v1/system/config/schema'
         });
     }
-
+    
     /**
      * Prune
      * Delete FlowInstance and FlowNodeExecution records older than the given seconds.
@@ -1733,7 +1800,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Create Flow
      * @param data The data for the request.
@@ -1752,7 +1819,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Flows
      * @param data The data for the request.
@@ -1776,12 +1843,14 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Flow Instances
      * @param data The data for the request.
      * @param data.flowId
+     * @param data.flowIdIsNull
      * @param data.status
+     * @param data.kind
      * @param data.limit
      * @param data.offset
      * @param data.order
@@ -1794,7 +1863,9 @@ export class V1Service {
             url: '/api/v1/flows/instances',
             query: {
                 flow_id: data.flowId,
+                flow_id_is_null: data.flowIdIsNull,
                 status: data.status,
+                kind: data.kind,
                 limit: data.limit,
                 offset: data.offset,
                 order: data.order
@@ -1804,13 +1875,14 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Flow Items
      * @param data The data for the request.
      * @param data.flowId
      * @param data.instanceId
      * @param data.status
+     * @param data.manualOnly
      * @param data.limit
      * @param data.offset
      * @returns Page_FlowItem_ Successful Response
@@ -1824,6 +1896,7 @@ export class V1Service {
                 flow_id: data.flowId,
                 instance_id: data.instanceId,
                 status: data.status,
+                manual_only: data.manualOnly,
                 limit: data.limit,
                 offset: data.offset
             },
@@ -1832,7 +1905,26 @@ export class V1Service {
             }
         });
     }
-
+    
+    /**
+     * Manual Send
+     * @param data The data for the request.
+     * @param data.requestBody
+     * @returns ManualSendResponse Successful Response
+     * @throws ApiError
+     */
+    public static manualSendApiV1FlowsManualSendPost(data: ManualSendApiV1FlowsManualSendPostData): CancelablePromise<ManualSendApiV1FlowsManualSendPostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/flows/manual-send',
+            body: data.requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
     /**
      * Retry Flow Items
      * @param data The data for the request.
@@ -1851,7 +1943,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Dismiss Flow Items
      * @param data The data for the request.
@@ -1870,7 +1962,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * List Flow Instance Items
      * @param data The data for the request.
@@ -1890,7 +1982,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Flow Instance
      * @param data The data for the request.
@@ -1910,7 +2002,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Flow Instance Detail
      * Get detailed execution information for a flow instance.
@@ -1931,7 +2023,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Get Flow
      * @param data The data for the request.
@@ -1951,7 +2043,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Update Flow
      * @param data The data for the request.
@@ -1974,7 +2066,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Delete Flow
      * @param data The data for the request.
@@ -1994,7 +2086,7 @@ export class V1Service {
             }
         });
     }
-
+    
     /**
      * Execute Flow
      * Manually trigger a flow execution with optional node exclusions.
@@ -2022,6 +2114,48 @@ export class V1Service {
 
 export class WarningsService {
     /**
+     * List Warnings
+     * @param data The data for the request.
+     * @param data.limit
+     * @param data.offset
+     * @returns Page_Warning_ Successful Response
+     * @throws ApiError
+     */
+    public static listWarningsApiV1WarningsGet(data: ListWarningsApiV1WarningsGetData = {}): CancelablePromise<ListWarningsApiV1WarningsGetResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/v1/warnings',
+            query: {
+                limit: data.limit,
+                offset: data.offset
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
+     * Retry Warning Delivery
+     * @param data The data for the request.
+     * @param data.deliveryId
+     * @returns void Successful Response
+     * @throws ApiError
+     */
+    public static retryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPost(data: RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostData): CancelablePromise<RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/v1/warnings/deliveries/{delivery_id}/retry',
+            path: {
+                delivery_id: data.deliveryId
+            },
+            errors: {
+                422: 'Validation Error'
+            }
+        });
+    }
+    
+    /**
      * Add Recipient
      * @param data The data for the request.
      * @param data.requestBody
@@ -2039,7 +2173,7 @@ export class WarningsService {
             }
         });
     }
-
+    
     /**
      * List Recipients
      * @param data The data for the request.
@@ -2061,7 +2195,7 @@ export class WarningsService {
             }
         });
     }
-
+    
     /**
      * Delete Recipient
      * @param data The data for the request.

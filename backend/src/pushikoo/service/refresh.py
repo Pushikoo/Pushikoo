@@ -49,12 +49,14 @@ from pushikoo.model.flow import (
     FlowItemStatus,
     FlowListFilter,
     FlowUpdate,
+    ManualSendRequest,
+    ManualSendResponse,
 )
 from pushikoo.model.flow import (
     FlowInstance as FlowInstanceModel,
 )
 from pushikoo.model.pagination import Page, apply_page_limit
-from pushikoo.service.adapter import AdapterInstanceService
+from pushikoo.service.adapter import AdapterInstanceService, AdapterService
 from pushikoo.service.config import ConfigService
 from pushikoo.service.image import ImageService
 from pushikoo.service.message import MessageService
@@ -257,13 +259,17 @@ class FlowInstanceService:
 
     @staticmethod
     def create(
-        flow_id: UUID,
+        flow_id: UUID | None,
         nodes: list[str] | None = None,
         status: FlowInstanceStatus = FlowInstanceStatus.WAITING,
         instance_id: UUID | None = None,
+        kind: FlowInstanceKind = FlowInstanceKind.NORMAL,
+        parent_instance_id: UUID | None = None,
     ) -> FlowInstanceModel:
         with get_session() as session:
             if nodes is None:
+                if flow_id is None:
+                    raise InvalidInputException("Nodes are required without a flow")
                 flow_db = session.get(FlowDB, flow_id)
                 if not flow_db:
                     raise NotFoundException(f"Flow not found: {flow_id}")
@@ -272,6 +278,8 @@ class FlowInstanceService:
                 id=instance_id or uuid.uuid4(),
                 flow_id=flow_id,
                 status=status.value,
+                kind=kind.value,
+                parent_instance_id=parent_instance_id,
                 nodes=nodes,
                 cursor=0,
             )
@@ -318,10 +326,14 @@ class FlowInstanceService:
         with get_session() as session:
             q = select(FlowInstanceDB)
             if filter:
-                if filter.flow_id is not None:
+                if filter.flow_id_is_null:
+                    q = q.where(FlowInstanceDB.flow_id.is_(None))
+                elif filter.flow_id is not None:
                     q = q.where(FlowInstanceDB.flow_id == filter.flow_id)
                 if filter.status is not None:
                     q = q.where(FlowInstanceDB.status == filter.status.value)
+                if filter.kind is not None:
+                    q = q.where(FlowInstanceDB.kind == filter.kind.value)
 
             # Get total count before pagination
             count_q = select(func.count()).select_from(q.subquery())
@@ -436,12 +448,12 @@ class FlowInstanceService:
                 session.commit()
 
         normal_by_flow: dict[UUID, list[UUID]] = {}
-        retry_ids: list[UUID] = []
+        independent_ids: list[UUID] = []
         for instance_id, flow_id, kind in recovery_rows:
-            if kind == FlowInstanceKind.NORMAL:
+            if kind == FlowInstanceKind.NORMAL and flow_id is not None:
                 normal_by_flow.setdefault(flow_id, []).append(instance_id)
             else:
-                retry_ids.append(instance_id)
+                independent_ids.append(instance_id)
 
         for flow_id, flow_instance_ids in normal_by_flow.items():
             try:
@@ -450,11 +462,11 @@ class FlowInstanceService:
                 logger.exception(
                     f"Failed to resume normal flow instances for flow {flow_id}"
                 )
-        for instance_id in retry_ids:
+        for instance_id in independent_ids:
             try:
                 FlowInstanceRunner.resume(instance_id).do()
             except Exception:
-                logger.exception(f"Failed to resume retry flow instance {instance_id}")
+                logger.exception(f"Failed to resume flow instance {instance_id}")
         return len(instance_ids)
 
 
@@ -479,6 +491,13 @@ class FlowItemService:
             q = q.where(FlowItemDB.flow_instance_id == filter.instance_id)
         if filter.flow_id is not None:
             q = q.where(FlowInstanceDB.flow_id == filter.flow_id)
+        if getattr(filter, "manual_only", False):
+            q = q.where(
+                FlowInstanceDB.flow_id.is_(None),
+                FlowInstanceDB.kind.in_(
+                    [FlowInstanceKind.MANUAL.value, FlowInstanceKind.RETRY.value]
+                ),
+            )
         status = getattr(filter, "status", None)
         if status is not None:
             q = q.where(FlowItemDB.status == status.value)
@@ -706,6 +725,138 @@ class FlowItemService:
                 dismissed=dismissed,
                 skipped=len(selected) - dismissed,
             )
+
+
+class ManualSendService:
+    @staticmethod
+    def _pusher_ids(session, ids: list[UUID]) -> list[UUID]:
+        unique_ids = list(dict.fromkeys(ids))
+        if not unique_ids:
+            raise InvalidInputException("At least one pusher is required")
+        rows = {
+            row.id: row
+            for row in session.exec(
+                select(AdapterInstanceDB).where(AdapterInstanceDB.id.in_(unique_ids))
+            ).all()
+        }
+        missing = [instance_id for instance_id in unique_ids if instance_id not in rows]
+        if missing:
+            raise NotFoundException(f"Adapter instance not found: {missing[0]}")
+        for instance_id in unique_ids:
+            row = rows[instance_id]
+            adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
+            if not issubclass(adapter_class, Pusher):
+                raise InvalidInputException(
+                    f"Adapter instance {instance_id} is not a Pusher"
+                )
+        return unique_ids
+
+    @staticmethod
+    def send(payload: ManualSendRequest) -> ManualSendResponse:
+        has_messages = bool(payload.message_ids)
+        has_items = bool(payload.item_ids)
+        if has_messages == has_items:
+            raise InvalidInputException(
+                "Exactly one of message_ids or item_ids is required"
+            )
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        created_instance_ids: list[UUID] = []
+        with get_session() as session:
+            pusher_ids = ManualSendService._pusher_ids(session, payload.pusher_ids)
+            groups: list[
+                tuple[UUID | None, UUID | None, list[tuple[UUID | None, dict]]]
+            ] = []
+
+            if payload.message_ids:
+                message_ids = list(dict.fromkeys(payload.message_ids))
+                messages = {
+                    row.id: row
+                    for row in session.exec(
+                        select(MessageDB).where(MessageDB.id.in_(message_ids))
+                    ).all()
+                }
+                missing = [
+                    message_id
+                    for message_id in message_ids
+                    if message_id not in messages
+                ]
+                if missing:
+                    raise NotFoundException(f"Message not found: {missing[0]}")
+                groups.append(
+                    (
+                        None,
+                        None,
+                        [
+                            (message_id, messages[message_id].content)
+                            for message_id in message_ids
+                        ],
+                    )
+                )
+            else:
+                item_ids = list(dict.fromkeys(payload.item_ids or []))
+                items = {
+                    row.id: row
+                    for row in session.exec(
+                        select(FlowItemDB).where(FlowItemDB.id.in_(item_ids))
+                    ).all()
+                }
+                missing = [item_id for item_id in item_ids if item_id not in items]
+                if missing:
+                    raise NotFoundException(f"Flow item not found: {missing[0]}")
+                parent_ids = {item.flow_instance_id for item in items.values()}
+                parents = {
+                    row.id: row
+                    for row in session.exec(
+                        select(FlowInstanceDB).where(FlowInstanceDB.id.in_(parent_ids))
+                    ).all()
+                }
+                grouped: dict[
+                    tuple[UUID | None, UUID], list[tuple[UUID | None, dict]]
+                ] = {}
+                for item_id in item_ids:
+                    item = items[item_id]
+                    parent = parents[item.flow_instance_id]
+                    grouped.setdefault((parent.flow_id, parent.id), []).append(
+                        (item.message_id, item.content)
+                    )
+                groups.extend(
+                    (flow_id, parent_id, contents)
+                    for (flow_id, parent_id), contents in grouped.items()
+                )
+
+            for flow_id, parent_instance_id, contents in groups:
+                instance = FlowInstanceDB(
+                    flow_id=flow_id,
+                    status=FlowInstanceStatus.WAITING.value,
+                    kind=FlowInstanceKind.MANUAL.value,
+                    parent_instance_id=parent_instance_id,
+                    nodes=[str(instance_id) for instance_id in pusher_ids],
+                    cursor=0,
+                    created_at=now,
+                )
+                session.add(instance)
+                session.flush()
+                for message_id, content_data in contents:
+                    # Cached message and item contents already have their images
+                    # stored locally, so they can be pushed as is.
+                    session.add(
+                        FlowItemDB(
+                            flow_instance_id=instance.id,
+                            message_id=message_id,
+                            content=content_data,
+                            cursor=0,
+                            status=FlowItemStatus.PENDING.value,
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
+                created_instance_ids.append(instance.id)
+            session.commit()
+
+        for instance_id in created_instance_ids:
+            FlowInstanceRunner.resume(instance_id).do()
+        return ManualSendResponse(instance_ids=created_instance_ids)
 
 
 class FlowNodeExecutionService:
@@ -965,6 +1116,52 @@ class FlowInstanceRunner:
                 ).all()
             )
 
+    def _pending_or_failed_items(self, node_index: int) -> list[FlowItemDB]:
+        with get_session() as session:
+            return list(
+                session.exec(
+                    select(FlowItemDB).where(
+                        FlowItemDB.flow_instance_id == self.flow_instance_id,
+                        FlowItemDB.cursor == node_index,
+                        FlowItemDB.status.in_(
+                            [
+                                FlowItemStatus.PENDING.value,
+                                FlowItemStatus.FAILED.value,
+                            ]
+                        ),
+                    )
+                ).all()
+            )
+
+    def _is_pusher_chain(self) -> bool:
+        # Manual sends (and their retries) consist only of pushers and deliver each
+        # item to every one of them. In flows, a pusher still terminates the item.
+        cached = getattr(self, "_pusher_chain", None)
+        if cached is not None:
+            return cached
+        node_ids = [UUID(node) for node in self.flow_nodes]
+        with get_session() as session:
+            rows = session.exec(
+                select(AdapterInstanceDB).where(AdapterInstanceDB.id.in_(node_ids))
+            ).all()
+        try:
+            result = len(rows) == len(set(node_ids)) and all(
+                issubclass(AdapterService.get_clsobj_by_name(row.adapter_name), Pusher)
+                for row in rows
+            )
+        except Exception:
+            result = False
+        self._pusher_chain = result
+        return result
+
+    def _flow_name(self) -> str:
+        if self.flow_id is None:
+            return "manual send"
+        try:
+            return FlowService.get(self.flow_id).name
+        except Exception:
+            return str(self.flow_id)
+
     def _advance_items(self, node_index: int) -> int:
         now = datetime.datetime.now(datetime.timezone.utc)
         with get_session() as session:
@@ -1163,11 +1360,15 @@ class FlowInstanceRunner:
             session.commit()
         return True
 
-    def _execute_getter(self, getter: Getter, node_index: int) -> int:
+    def _execute_getter(
+        self, getter: Getter, node_index: int, adapter_instance_id: UUID
+    ) -> int:
         getter_name = getter.adapter_name
         getter_full_name = f"{getter.adapter_name}.{getter.identifier}"
         try:
-            identifiers = self._unclaimed_identifiers(getter_name, getter.timeline())
+            with AdapterInstanceService.call_lock(adapter_instance_id) as locked:
+                timeline = locked.timeline()
+            identifiers = self._unclaimed_identifiers(getter_name, timeline)
         except Exception as ex:
             self._track_getter_timeline_failure(getter, ex)
             raise
@@ -1196,7 +1397,8 @@ class FlowInstanceRunner:
             and ConfigService("system", SystemConfig).get().policy.perf_merged_details
         ):
             try:
-                detail = getter.details(uncached)
+                with AdapterInstanceService.call_lock(adapter_instance_id) as locked:
+                    detail = locked.details(uncached)
                 claimed += int(
                     self._cache_and_claim_merged(
                         getter_name, uncached, detail, node_index
@@ -1211,6 +1413,8 @@ class FlowInstanceRunner:
                 )
 
         identifiers = uncached
+        detail_errors: list[tuple[str, str]] = []
+        detail_errors_lock = threading.Lock()
 
         def fetch_and_claim(identifier: str) -> bool:
             cached = self._cached_message(getter_name, identifier)
@@ -1218,18 +1422,20 @@ class FlowInstanceRunner:
                 return self._cache_and_claim(getter_name, identifier, node_index)
             for attempt in range(1, self.ATTEMPT_COUNT + 1):
                 try:
+                    with AdapterInstanceService.call_lock(
+                        adapter_instance_id
+                    ) as locked:
+                        detail = locked.detail(identifier)
                     return self._cache_and_claim(
                         getter_name,
                         identifier,
                         node_index,
-                        detail=getter.detail(identifier),
+                        detail=detail,
                     )
                 except Exception as ex:
                     if attempt == self.ATTEMPT_COUNT:
-                        self._issue_warning(
-                            f"Getter '{getter_full_name}' failed to fetch details for "
-                            f"identifier {identifier} after {self.ATTEMPT_COUNT} attempts."
-                        )
+                        with detail_errors_lock:
+                            detail_errors.append((identifier, str(ex)))
                         logger.exception(f"Failed to get detail for {identifier}: {ex}")
                     else:
                         logger.warning(
@@ -1241,10 +1447,18 @@ class FlowInstanceRunner:
             futures = [executor.submit(fetch_and_claim, value) for value in identifiers]
             for future in as_completed(futures):
                 claimed += int(future.result())
+        if detail_errors:
+            first_identifier, first_error = detail_errors[0]
+            self._issue_warning(
+                f"Getter '{getter_full_name}' failed to fetch details for "
+                f"{len(detail_errors)} of {len(identifiers)} items in flow "
+                f"'{self._flow_name()}' (instance {self.flow_instance_id}). "
+                f"First error ({first_identifier}): {first_error}"
+            )
         return claimed
 
     def _execute_processer(
-        self, processer: Processer, node_index: int
+        self, processer: Processer, node_index: int, adapter_instance_id: UUID
     ) -> tuple[int, int, int]:
         items = self._pending_items(node_index)
         succeeded = 0
@@ -1253,9 +1467,12 @@ class FlowInstanceRunner:
             last_error = ""
             for attempt in range(1, self.ATTEMPT_COUNT + 1):
                 try:
-                    processed = processer.process(
-                        Struct.model_validate(item.content).model_copy(deep=True)
-                    )
+                    with AdapterInstanceService.call_lock(
+                        adapter_instance_id
+                    ) as locked:
+                        processed = locked.process(
+                            Struct.model_validate(item.content).model_copy(deep=True)
+                        )
                     now = datetime.datetime.now(datetime.timezone.utc)
                     with get_session() as session:
                         current = session.get(FlowItemDB, item.id)
@@ -1295,13 +1512,26 @@ class FlowInstanceRunner:
                         session.add(current)
                         session.commit()
                 failed += 1
-                self._issue_warning(
-                    f"Processer '{processer.adapter_name}.{processer.identifier}' failed "
-                    f"after {self.ATTEMPT_COUNT} attempts. Error: {last_error}"
-                )
+        if failed:
+            first_error = next(
+                (
+                    item.last_error
+                    for item in self._pending_or_failed_items(node_index)
+                    if item.last_error
+                ),
+                "unknown error",
+            )
+            self._issue_warning(
+                f"Processer '{processer.adapter_name}.{processer.identifier}' failed "
+                f"for {failed} of {len(items)} items in flow '{self._flow_name()}' "
+                f"(instance {self.flow_instance_id}). First error: {first_error}. "
+                "Failed items can be retried in the UI."
+            )
         return len(items), succeeded, failed
 
-    def _execute_pusher(self, pusher: Pusher, node_index: int) -> tuple[int, int, int]:
+    def _execute_pusher(
+        self, pusher: Pusher, node_index: int, adapter_instance_id: UUID
+    ) -> tuple[int, int, int]:
         items = self._pending_items(node_index)
         succeeded = 0
         failed = 0
@@ -1309,13 +1539,22 @@ class FlowInstanceRunner:
             last_error = ""
             for attempt in range(1, self.ATTEMPT_COUNT + 1):
                 try:
-                    pusher.push(
-                        Struct.model_validate(item.content).model_copy(deep=True)
-                    )
+                    with AdapterInstanceService.call_lock(
+                        adapter_instance_id
+                    ) as locked:
+                        locked.push(
+                            Struct.model_validate(item.content).model_copy(deep=True)
+                        )
                     with get_session() as session:
                         current = session.get(FlowItemDB, item.id)
                         if current and current.status == FlowItemStatus.PENDING.value:
-                            current.status = FlowItemStatus.DONE.value
+                            if (
+                                node_index + 1 < len(self.flow_nodes)
+                                and self._is_pusher_chain()
+                            ):
+                                current.cursor = node_index + 1
+                            else:
+                                current.status = FlowItemStatus.DONE.value
                             current.last_error = None
                             current.updated_at = datetime.datetime.now(
                                 datetime.timezone.utc
@@ -1340,10 +1579,21 @@ class FlowInstanceRunner:
                         session.add(current)
                         session.commit()
                 failed += 1
-                self._issue_warning(
-                    f"Pusher '{pusher.adapter_name}.{pusher.identifier}' failed after "
-                    f"{self.ATTEMPT_COUNT} attempts. Error: {last_error}"
-                )
+        if failed:
+            first_error = next(
+                (
+                    item.last_error
+                    for item in self._pending_or_failed_items(node_index)
+                    if item.last_error
+                ),
+                "unknown error",
+            )
+            self._issue_warning(
+                f"Pusher '{pusher.adapter_name}.{pusher.identifier}' failed for "
+                f"{failed} of {len(items)} items in flow '{self._flow_name()}' "
+                f"(instance {self.flow_instance_id}). First error: {first_error}. "
+                "Failed items can be retried in the UI."
+            )
         return len(items), succeeded, failed
 
     def _advance_instance(self, cursor: int) -> None:
@@ -1438,7 +1688,9 @@ class FlowInstanceRunner:
                 created = 0
                 if instance.kind == FlowInstanceKind.NORMAL:
                     try:
-                        created = self._execute_getter(node_obj, node_index)
+                        created = self._execute_getter(
+                            node_obj, node_index, adapter_instance_id
+                        )
                     except Exception as ex:
                         node_failed = True
                         error_message = str(ex)
@@ -1453,13 +1705,15 @@ class FlowInstanceRunner:
                 )
             elif isinstance(node_obj, Processer):
                 items_in, items_out, failed = self._execute_processer(
-                    node_obj, node_index
+                    node_obj, node_index, adapter_instance_id
                 )
                 if failed:
                     node_failed = True
                     error_message = f"{failed} item(s) failed"
             elif isinstance(node_obj, Pusher):
-                items_in, items_out, failed = self._execute_pusher(node_obj, node_index)
+                items_in, items_out, failed = self._execute_pusher(
+                    node_obj, node_index, adapter_instance_id
+                )
                 if failed:
                     node_failed = True
                     error_message = f"{failed} item(s) failed"
@@ -1557,7 +1811,9 @@ class FlowInstanceRunner:
 
 class CronService:
     WATCHDOG_JOB_ID = "pushikoo-flow-runner-watchdog"
+    WARNING_RETRY_JOB_ID = "pushikoo-warning-delivery-retry"
     WATCHDOG_INTERVAL_SECONDS = 60
+    WARNING_RETRY_INTERVAL_SECONDS = 60
     _stuck_warning_keys: set[tuple[UUID, int]] = set()
     _scheduler = BackgroundScheduler(
         executors={
@@ -1719,11 +1975,23 @@ class CronService:
                     seconds=cls.WATCHDOG_INTERVAL_SECONDS,
                     id=cls.WATCHDOG_JOB_ID,
                     replace_existing=True,
+                    max_instances=1,
                 )
                 job_ids.add(cls.WATCHDOG_JOB_ID)
+            if cls.WARNING_RETRY_JOB_ID not in job_ids:
+                cls._scheduler.add_job(
+                    WarningService.retry_due,
+                    trigger="interval",
+                    seconds=cls.WARNING_RETRY_INTERVAL_SECONDS,
+                    id=cls.WARNING_RETRY_JOB_ID,
+                    replace_existing=True,
+                    max_instances=1,
+                )
+                job_ids.add(cls.WARNING_RETRY_JOB_ID)
 
+            fixed_job_ids = {cls.WATCHDOG_JOB_ID, cls.WARNING_RETRY_JOB_ID}
             to_add = db_ids - job_ids
-            to_remove = job_ids - db_ids - {cls.WATCHDOG_JOB_ID}
+            to_remove = job_ids - db_ids - fixed_job_ids
 
             cron_map = {
                 cls._job_id(flow_id, cron_expr): (cron_id, flow_id, cron_expr)

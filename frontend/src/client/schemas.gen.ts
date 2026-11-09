@@ -293,8 +293,15 @@ export const FlowInstanceSchema = {
             title: 'Id'
         },
         flow_id: {
-            type: 'string',
-            format: 'uuid',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Flow Id'
         },
         status: {
@@ -349,8 +356,15 @@ export const FlowInstanceDetailSchema = {
             title: 'Id'
         },
         flow_id: {
-            type: 'string',
-            format: 'uuid',
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'uuid'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Flow Id'
         },
         status: {
@@ -407,7 +421,7 @@ export const FlowInstanceDetailSchema = {
 
 export const FlowInstanceKindSchema = {
     type: 'string',
-    enum: ['normal', 'retry'],
+    enum: ['normal', 'retry', 'manual'],
     title: 'FlowInstanceKind'
 } as const;
 
@@ -775,6 +789,68 @@ export const HTTPValidationErrorSchema = {
     },
     type: 'object',
     title: 'HTTPValidationError'
+} as const;
+
+export const ManualSendRequestSchema = {
+    properties: {
+        pusher_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Pusher Ids'
+        },
+        message_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Message Ids'
+        },
+        item_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string',
+                        format: 'uuid'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Item Ids'
+        }
+    },
+    type: 'object',
+    required: ['pusher_ids'],
+    title: 'ManualSendRequest'
+} as const;
+
+export const ManualSendResponseSchema = {
+    properties: {
+        instance_ids: {
+            items: {
+                type: 'string',
+                format: 'uuid'
+            },
+            type: 'array',
+            title: 'Instance Ids'
+        }
+    },
+    type: 'object',
+    required: ['instance_ids'],
+    title: 'ManualSendResponse'
 } as const;
 
 export const MessageSchema = {
@@ -1145,6 +1221,47 @@ export const Page_Message_Schema = {
     title: 'Page[Message]'
 } as const;
 
+export const Page_Warning_Schema = {
+    properties: {
+        items: {
+            items: {
+                '$ref': '#/components/schemas/Warning'
+            },
+            type: 'array',
+            title: 'Items'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        limit: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Limit'
+        },
+        offset: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Offset'
+        }
+    },
+    type: 'object',
+    required: ['items', 'total', 'limit', 'offset'],
+    title: 'Page[Warning]'
+} as const;
+
 export const PipCommandResultSchema = {
     properties: {
         target: {
@@ -1175,6 +1292,13 @@ export const PolicySchema = {
             title: 'Flow Node Stuck Warning Seconds',
             description: 'Warn when a flow node runs longer than this many seconds',
             default: 600
+        },
+        warning_retry_max_hours: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Warning Retry Max Hours',
+            description: 'Stop retrying warning deliveries after this many hours',
+            default: 24
         },
         attempt: {
             '$ref': '#/components/schemas/Attempt',
@@ -1364,6 +1488,7 @@ export const SystemConfigSchema = {
             default: {
                 perf_merged_details: true,
                 flow_node_stuck_warning_seconds: 600,
+                warning_retry_max_hours: 24,
                 attempt: {
                     getter_timeline: [5, 10, 50]
                 }
@@ -1402,6 +1527,92 @@ export const ValidationErrorSchema = {
     type: 'object',
     required: ['loc', 'msg', 'type'],
     title: 'ValidationError'
+} as const;
+
+export const WarningSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        content: {
+            '$ref': '#/components/schemas/Struct-Output'
+        },
+        created_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Created At'
+        },
+        deliveries: {
+            items: {
+                '$ref': '#/components/schemas/WarningDelivery'
+            },
+            type: 'array',
+            title: 'Deliveries'
+        }
+    },
+    type: 'object',
+    required: ['id', 'content', 'created_at', 'deliveries'],
+    title: 'Warning'
+} as const;
+
+export const WarningDeliverySchema = {
+    properties: {
+        id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Id'
+        },
+        adapter_instance_id: {
+            type: 'string',
+            format: 'uuid',
+            title: 'Adapter Instance Id'
+        },
+        recipient_name: {
+            type: 'string',
+            title: 'Recipient Name'
+        },
+        status: {
+            '$ref': '#/components/schemas/WarningDeliveryStatus'
+        },
+        attempts: {
+            type: 'integer',
+            title: 'Attempts'
+        },
+        last_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Error'
+        },
+        sent_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sent At'
+        }
+    },
+    type: 'object',
+    required: ['id', 'adapter_instance_id', 'recipient_name', 'status', 'attempts', 'last_error', 'sent_at'],
+    title: 'WarningDelivery'
+} as const;
+
+export const WarningDeliveryStatusSchema = {
+    type: 'string',
+    enum: ['pending', 'sent', 'failed'],
+    title: 'WarningDeliveryStatus'
 } as const;
 
 export const WarningRecipientCreateSchema = {

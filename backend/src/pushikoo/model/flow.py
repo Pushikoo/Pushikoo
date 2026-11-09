@@ -38,6 +38,7 @@ class FlowInstanceStatus(StrEnum):
 class FlowInstanceKind(StrEnum):
     NORMAL = "normal"
     RETRY = "retry"
+    MANUAL = "manual"
 
 
 class FlowInstanceOrder(StrEnum):
@@ -47,7 +48,9 @@ class FlowInstanceOrder(StrEnum):
 
 class FlowInstanceListFilter(BaseModel):
     flow_id: UUID | None = None
+    flow_id_is_null: bool = False
     status: FlowInstanceStatus | None = None
+    kind: FlowInstanceKind | None = None
     limit: int | None = None
     offset: int | None = None
     order: FlowInstanceOrder = FlowInstanceOrder.CREATED_AT_DESC
@@ -63,7 +66,7 @@ class FlowItemCounts(BaseModel):
 
 class FlowInstance(BaseModel):
     id: UUID
-    flow_id: UUID
+    flow_id: UUID | None
     status: FlowInstanceStatus
     kind: FlowInstanceKind
     parent_instance_id: UUID | None
@@ -100,6 +103,7 @@ class FlowItemListFilter(BaseModel):
     flow_id: UUID | None = None
     instance_id: UUID | None = None
     status: FlowItemStatus | None = None
+    manual_only: bool = False
     limit: int | None = None
     offset: int | None = None
 
@@ -125,6 +129,16 @@ class FlowExecuteRequest(BaseModel):
     """Request body for executing a flow with optional node inclusions."""
 
     include_nodes: list[UUID] | None = None  # List of node IDs to run (None = run all)
+
+
+class ManualSendRequest(BaseModel):
+    pusher_ids: list[UUID]
+    message_ids: list[UUID] | None = None
+    item_ids: list[UUID] | None = None
+
+
+class ManualSendResponse(BaseModel):
+    instance_ids: list[UUID]
 
 
 class FlowNodeExecutionStatus(StrEnum):

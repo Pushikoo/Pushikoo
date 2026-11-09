@@ -1,6 +1,7 @@
 import importlib
 import sys
 import threading
+from contextlib import contextmanager
 from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from pushikoo_interface import (
     AdapterMeta as InterfaceAdapterMeta,
 )
 from pydantic import ValidationError
+from sqlalchemy import delete
 from sqlmodel import func, select
 
 from pushikoo.db import AdapterInstance as AdapterInstanceDB
@@ -125,9 +127,7 @@ class AdapterService:
     def _inject_class_context(cls: type[Adapter], adapter_name: str) -> None:
         """Inject a class-level context into the adapter class"""
         ctx = AdapterFrameworkContext()
-        ctx.adapter_base_url = (
-            f"{settings.BASE_HOST}/ext/adapters/{adapter_name}"
-        )
+        ctx.adapter_base_url = f"{settings.BASE_HOST}/ext/adapters/{adapter_name}"
         ctx.get_proxies = lambda: (
             ConfigService("system", SystemConfig).get().network.proxies
         )
@@ -297,6 +297,34 @@ class AdapterInstanceService:
     instance_objects: dict[UUID, InterfaceAdapter] = {}
     instance_versions: dict[UUID, str] = {}
     instance_lock = threading.Lock()
+    _call_locks_guard = threading.Lock()
+    _call_locks: dict[UUID, threading.RLock] = {}
+
+    @staticmethod
+    def _get_call_lock(instance_id: UUID) -> threading.RLock:
+        with AdapterInstanceService._call_locks_guard:
+            return AdapterInstanceService._call_locks.setdefault(
+                instance_id, threading.RLock()
+            )
+
+    @staticmethod
+    @contextmanager
+    def call_lock(instance_id: UUID, timeout: float | None = None):
+        """Serialize one Pushikoo-initiated call for an adapter instance.
+
+        With a timeout, raise TimeoutError instead of waiting behind a call that
+        may be stuck.
+        """
+        lock = AdapterInstanceService._get_call_lock(instance_id)
+        if not lock.acquire(timeout=-1 if timeout is None else timeout):
+            raise TimeoutError(
+                f"Adapter instance {instance_id} is busy (waited {timeout}s)"
+            )
+        try:
+            AdapterInstanceService.ensure_load_instance(instance_id)
+            yield AdapterInstanceService.instance_objects[instance_id]
+        finally:
+            lock.release()
 
     @staticmethod
     def get_object(adapter_name: str, identifier: str) -> InterfaceAdapter:
@@ -324,22 +352,35 @@ class AdapterInstanceService:
 
         adapter_class = AdapterService.get_clsobj_by_name(row.adapter_name)
         current_version = adapter_class.meta.version
-
         with AdapterInstanceService.instance_lock:
-            cached_version = AdapterInstanceService.instance_versions.get(instance_id)
-            if cached_version == current_version:
+            if (
+                AdapterInstanceService.instance_versions.get(instance_id)
+                == current_version
+            ):
                 return
 
-            if cached_version is not None:
-                logger.info(
-                    f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
-                    f"{cached_version} -> {current_version}, re-instantiating"
+        # Replacing the object takes the same per-instance lock as plugin calls so
+        # it cannot race with a call already using the cached object.
+        with AdapterInstanceService._get_call_lock(instance_id):
+            with AdapterInstanceService.instance_lock:
+                cached_version = AdapterInstanceService.instance_versions.get(
+                    instance_id
                 )
+                if cached_version == current_version:
+                    return
 
-            instance = AdapterService.create_instance(row.adapter_name, row.identifier)
-            AdapterInstanceService.instance_objects[instance_id] = instance
-            AdapterInstanceService.instance_versions[instance_id] = current_version
-            _set_instance_router(instance)
+                if cached_version is not None:
+                    logger.info(
+                        f"Adapter version changed for {row.adapter_name}.{row.identifier}: "
+                        f"{cached_version} -> {current_version}, re-instantiating"
+                    )
+
+                instance = AdapterService.create_instance(
+                    row.adapter_name, row.identifier
+                )
+                AdapterInstanceService.instance_objects[instance_id] = instance
+                AdapterInstanceService.instance_versions[instance_id] = current_version
+                _set_instance_router(instance)
 
     @staticmethod
     def ensure_load_all_instances() -> None:
@@ -461,12 +502,35 @@ class AdapterInstanceService:
                 raise NotFoundException("Adapter instance not found")
 
             instance_id = instance_record.id
-            session.delete(instance_record)
-            session.commit()
 
-        AdapterInstanceService.instance_objects.pop(instance_id, None)
-        AdapterInstanceService.instance_versions.pop(instance_id, None)
-        _remove_instance_router(adapter_name, identifier)
+        # Prevent deletion from interleaving with an in-flight plugin call. Warning
+        # deliveries reference adapter instances, so clean their rows and recipient
+        # registration explicitly before deleting the instance.
+        with AdapterInstanceService._get_call_lock(instance_id):
+            from pushikoo.db import WarningDelivery, WarningRecipient
+
+            with get_session() as session:
+                session.execute(
+                    delete(WarningRecipient).where(
+                        WarningRecipient.adapter_instance_id == instance_id
+                    )
+                )
+                session.execute(
+                    delete(WarningDelivery).where(
+                        WarningDelivery.adapter_instance_id == instance_id
+                    )
+                )
+                current = session.get(AdapterInstanceDB, instance_id)
+                if current is not None:
+                    session.delete(current)
+                session.commit()
+
+            AdapterInstanceService.instance_objects.pop(instance_id, None)
+            AdapterInstanceService.instance_versions.pop(instance_id, None)
+            _remove_instance_router(adapter_name, identifier)
+
+        with AdapterInstanceService._call_locks_guard:
+            AdapterInstanceService._call_locks.pop(instance_id, None)
 
         logger.info(f"Deleted adapter instance: {adapter_name}.{identifier}")
 

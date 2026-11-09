@@ -201,6 +201,7 @@
                   {{ instance.status }}
                 </v-chip>
                 <v-chip v-if="instance.kind === 'retry'" color="info" size="x-small" label>{{ $t('flows.retryKind') }}</v-chip>
+                <v-chip v-if="instance.kind === 'manual'" color="purple" size="x-small" label>{{ $t('flows.manualKind') }}</v-chip>
                 <v-chip v-for="entry in instanceCountEntries(instance)" :key="entry.status" :color="itemStatusColors[entry.status]"
                   size="x-small" variant="tonal">{{ itemStatusLabel(entry.status) }} {{ entry.count }}</v-chip>
               </v-list-item-title>
@@ -302,6 +303,7 @@
                 {{ selectedInstanceDetail.status }}
               </v-chip>
               <v-chip v-if="selectedInstanceDetail.kind === 'retry'" color="info" size="small" label>{{ $t('flows.retryKind') }}</v-chip>
+              <v-chip v-if="selectedInstanceDetail.kind === 'manual'" color="purple" size="small" label>{{ $t('flows.manualKind') }}</v-chip>
               <v-btn v-if="selectedInstanceDetail.parent_instance_id" variant="text" size="small"
                 prepend-icon="mdi-arrow-left" @click="openInstanceDetailById(selectedInstanceDetail.parent_instance_id)">
                 {{ $t('flows.parentInstance') }}
@@ -352,9 +354,14 @@
             </div>
 
             <v-divider class="my-4"></v-divider>
-            <h3 class="text-subtitle-1 font-weight-bold mb-3">{{ $t('flows.items') }}</h3>
+            <div class="d-flex align-center mb-3">
+              <h3 class="text-subtitle-1 font-weight-bold">{{ $t('flows.items') }}</h3>
+              <v-spacer />
+              <v-btn size="small" color="primary" variant="tonal" prepend-icon="mdi-send" :disabled="!selectedSendItemIds.length" @click="openItemSend(selectedSendItemIds)">{{ $t('manualSend.sendSelected') }}</v-btn>
+            </div>
             <v-list v-if="selectedInstanceItems.length" class="bg-transparent" lines="three">
               <v-list-item v-for="item in selectedInstanceItems" :key="item.id" class="mb-2 border rounded-lg">
+                <template #prepend><v-checkbox-btn v-model="selectedSendItemIds" :value="item.id" /></template>
                 <v-list-item-title class="d-flex align-center flex-wrap ga-2">
                   <v-chip :color="itemStatusColors[item.status]" size="x-small" label>{{ itemStatusLabel(item.status) }}</v-chip>
                   <span class="text-caption">{{ $t('flows.stuckNode') }}: {{ item.adapter_instance_id ? getInstanceName(item.adapter_instance_id) : '-' }}</span>
@@ -363,10 +370,11 @@
                 <v-alert v-if="item.status === 'failed' && item.last_error" type="error" variant="tonal" density="compact" class="mt-2">{{ item.last_error }}</v-alert>
                 <v-btn v-if="item.retried_by_instance_id" variant="text" size="x-small" class="mt-1"
                   @click="openInstanceDetailById(item.retried_by_instance_id)">{{ $t('flows.viewRetryInstance') }}</v-btn>
-                <template v-if="item.status === 'failed'" v-slot:append>
+                <template v-slot:append>
                   <div class="d-flex flex-column ga-1">
-                    <v-btn size="x-small" color="primary" variant="tonal" @click="retryItems([item.id])" :loading="itemActionLoading">{{ $t('common.retry') }}</v-btn>
-                    <v-btn size="x-small" color="warning" variant="tonal" @click="dismissItems([item.id])" :loading="itemActionLoading">{{ $t('flows.dismiss') }}</v-btn>
+                    <v-btn size="x-small" color="primary" variant="tonal" prepend-icon="mdi-send" @click="openItemSend([item.id])">{{ $t('manualSend.sendTo') }}</v-btn>
+                    <v-btn v-if="item.status === 'failed'" size="x-small" color="primary" variant="tonal" @click="retryItems([item.id])" :loading="itemActionLoading">{{ $t('common.retry') }}</v-btn>
+                    <v-btn v-if="item.status === 'failed'" size="x-small" color="warning" variant="tonal" @click="dismissItems([item.id])" :loading="itemActionLoading">{{ $t('flows.dismiss') }}</v-btn>
                   </div>
                 </template>
               </v-list-item>
@@ -408,6 +416,8 @@
       </v-card>
     </v-dialog>
 
+    <ManualSendDialog v-model="manualSendDialog" :item-ids="sendItemIds" @created="handleManualCreated" />
+
     <!-- Delete Confirmation -->
     <v-dialog v-model="deleteDialog" max-width="400px" persistent>
       <v-card rounded="xl">
@@ -441,6 +451,7 @@ import { useI18n } from 'vue-i18n'
 import { FlowsService, InstancesService, type Flow, type FlowInstance, type FlowInstanceDetail, type FlowInstanceStatus, type FlowItem, type FlowItemStatus } from '@/client'
 import draggable from 'vuedraggable'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ManualSendDialog from '@/components/ManualSendDialog.vue'
 import { getApiErrorMessage } from '@/utils/apiErrorHelper'
 import { structAsPlainText, type Struct } from '@/utils/structRenderer'
 
@@ -494,6 +505,9 @@ const failedItemsPage = ref(1)
 const failedItemsPerPage = 10
 const failedItemsTotal = ref(0)
 const itemActionLoading = ref(false)
+const selectedSendItemIds = ref<string[]>([])
+const manualSendDialog = ref(false)
+const sendItemIds = ref<string[]>([])
 
 const allStatuses: FlowInstanceStatus[] = ['waiting', 'running', 'completed', 'failed', 'cancelled']
 
@@ -766,6 +780,7 @@ const loadingInstanceDetail = ref(false)
 const selectedInstanceId = ref<string | null>(null)
 
 const openInstanceDetail = async (instance: FlowInstance) => {
+  selectedSendItemIds.value = []
   selectedInstanceId.value = instance.id
   loadingInstanceDetail.value = true
   instanceDetailDialog.value = true
@@ -788,6 +803,16 @@ const openInstanceDetail = async (instance: FlowInstance) => {
 
 const openInstanceDetailById = async (instanceId: string) => {
   await openInstanceDetail({ id: instanceId } as FlowInstance)
+}
+
+const openItemSend = (itemIds: string[]) => {
+  sendItemIds.value = [...itemIds]
+  manualSendDialog.value = true
+}
+
+const handleManualCreated = async () => {
+  selectedSendItemIds.value = []
+  await loadFlowInstances()
 }
 
 const getItemPreview = (item: FlowItem) => {

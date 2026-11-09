@@ -22,6 +22,11 @@ class SystemConfig(BaseModel):
             ge=1,
             description="Warn when a flow node runs longer than this many seconds",
         )
+        warning_retry_max_hours: int = Field(
+            24,
+            ge=1,
+            description="Stop retrying warning deliveries after this many hours",
+        )
 
         class Attempt(BaseModel):
             getter_timeline: list[int] = Field(

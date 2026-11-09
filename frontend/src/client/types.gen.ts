@@ -75,7 +75,7 @@ export type FlowExecuteRequest = {
 
 export type FlowInstance = {
     id: string;
-    flow_id: string;
+    flow_id: (string | null);
     status: FlowInstanceStatus;
     kind: FlowInstanceKind;
     parent_instance_id: (string | null);
@@ -90,7 +90,7 @@ export type FlowInstance = {
  */
 export type FlowInstanceDetail = {
     id: string;
-    flow_id: string;
+    flow_id: (string | null);
     status: FlowInstanceStatus;
     kind: FlowInstanceKind;
     parent_instance_id: (string | null);
@@ -101,7 +101,7 @@ export type FlowInstanceDetail = {
     node_executions: Array<FlowNodeExecution>;
 };
 
-export type FlowInstanceKind = 'normal' | 'retry';
+export type FlowInstanceKind = 'normal' | 'retry' | 'manual';
 
 export type FlowInstanceOrder = 'created_at_desc' | 'created_at_asc';
 
@@ -179,6 +179,16 @@ export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
 
+export type ManualSendRequest = {
+    pusher_ids: Array<(string)>;
+    message_ids?: (Array<(string)> | null);
+    item_ids?: (Array<(string)> | null);
+};
+
+export type ManualSendResponse = {
+    instance_ids: Array<(string)>;
+};
+
 export type Message = {
     id: string;
     message_identifier: string;
@@ -254,6 +264,13 @@ export type Page_Message_ = {
     offset: (number | null);
 };
 
+export type Page_Warning_ = {
+    items: Array<Warning>;
+    total: number;
+    limit: (number | null);
+    offset: (number | null);
+};
+
 export type PipCommandResult = {
     target: string;
     output: string;
@@ -268,6 +285,10 @@ export type Policy = {
      * Warn when a flow node runs longer than this many seconds
      */
     flow_node_stuck_warning_seconds?: number;
+    /**
+     * Stop retrying warning deliveries after this many hours
+     */
+    warning_retry_max_hours?: number;
     attempt?: Attempt;
 };
 
@@ -329,6 +350,25 @@ export type ValidationError = {
     msg: string;
     type: string;
 };
+
+export type Warning = {
+    id: string;
+    content: Struct_Output;
+    created_at: string;
+    deliveries: Array<WarningDelivery>;
+};
+
+export type WarningDelivery = {
+    id: string;
+    adapter_instance_id: string;
+    recipient_name: string;
+    status: WarningDeliveryStatus;
+    attempts: number;
+    last_error: (string | null);
+    sent_at: (string | null);
+};
+
+export type WarningDeliveryStatus = 'pending' | 'sent' | 'failed';
 
 export type WarningRecipientCreate = {
     adapter_instance_id: string;
@@ -422,6 +462,8 @@ export type ListFlowsApiV1FlowsGetResponse = (Page_Flow_);
 
 export type ListFlowInstancesApiV1FlowsInstancesGetData = {
     flowId?: (string | null);
+    flowIdIsNull?: boolean;
+    kind?: (FlowInstanceKind | null);
     limit?: (number | null);
     offset?: (number | null);
     order?: FlowInstanceOrder;
@@ -434,11 +476,18 @@ export type ListFlowItemsApiV1FlowsItemsGetData = {
     flowId?: (string | null);
     instanceId?: (string | null);
     limit?: (number | null);
+    manualOnly?: boolean;
     offset?: (number | null);
     status?: (FlowItemStatus | null);
 };
 
 export type ListFlowItemsApiV1FlowsItemsGetResponse = (Page_FlowItem_);
+
+export type ManualSendApiV1FlowsManualSendPostData = {
+    requestBody: ManualSendRequest;
+};
+
+export type ManualSendApiV1FlowsManualSendPostResponse = (ManualSendResponse);
 
 export type RetryFlowItemsApiV1FlowsItemsRetryPostData = {
     requestBody: FlowItemActionRequest;
@@ -659,6 +708,19 @@ export type PruneApiV1SystemPrunePostData = {
 export type PruneApiV1SystemPrunePostResponse = ({
     [key: string]: unknown;
 });
+
+export type ListWarningsApiV1WarningsGetData = {
+    limit?: (number | null);
+    offset?: (number | null);
+};
+
+export type ListWarningsApiV1WarningsGetResponse = (Page_Warning_);
+
+export type RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostData = {
+    deliveryId: string;
+};
+
+export type RetryWarningDeliveryApiV1WarningsDeliveriesDeliveryIdRetryPostResponse = (void);
 
 export type AddRecipientApiV1WarningsRecipientsPostData = {
     requestBody: WarningRecipientCreate;

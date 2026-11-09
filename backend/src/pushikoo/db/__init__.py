@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Optional
 
-from sqlalchemy import JSON, Column, UniqueConstraint, event
+from sqlalchemy import JSON, Column, Index, UniqueConstraint, event
 from sqlalchemy_utc import UtcDateTime
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine
 
@@ -65,7 +65,7 @@ class Flow(SQLModel, table=True):
 
 class FlowInstance(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    flow_id: uuid.UUID = Field(foreign_key="flow.id")
+    flow_id: Optional[uuid.UUID] = Field(default=None, foreign_key="flow.id")
     status: str
     kind: str = Field(default="normal")
     parent_instance_id: Optional[uuid.UUID] = Field(
@@ -154,6 +154,43 @@ class Config(SQLModel, table=True):
     value: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
 
+class Warning(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    content: dict = Field(sa_column=Column(JSON, nullable=False))
+    created_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+
+
+class WarningDelivery(SQLModel, table=True):
+    __table_args__ = (
+        Index("ix_warningdelivery_status_next_attempt_at", "status", "next_attempt_at"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    warning_id: uuid.UUID = Field(foreign_key="warning.id")
+    adapter_instance_id: uuid.UUID = Field(foreign_key="adapterinstance.id")
+    status: str = "pending"
+    attempts: int = 0
+    next_attempt_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+    last_error: Optional[str] = None
+    sent_at: Optional[datetime.datetime] = Field(
+        default=None, sa_column=Column(UtcDateTime())
+    )
+    created_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+    updated_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc),
+        sa_column=Column(UtcDateTime(), nullable=False),
+    )
+
+
 class WarningRecipient(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("adapter_instance_id", name="uix_warning_recipient"),
@@ -205,6 +242,8 @@ __all__ = [
     "Config",
     "File",
     # warning
+    "Warning",
+    "WarningDelivery",
     "WarningRecipient",
     # pip
     "PipIndex",

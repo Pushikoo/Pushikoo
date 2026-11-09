@@ -158,6 +158,7 @@
         "alreadyRunning": "このフローは実行中です",
         "failedMessages": "失敗メッセージ",
         "retryKind": "再試行",
+        "manualKind": "手動",
         "retryAllFailed": "失敗項目をすべて再試行",
         "retryAll": "すべて再試行",
         "parentInstance": "親インスタンス",
@@ -235,11 +236,16 @@
         "tableHeaderContent": "コンテンツ",
         "tableHeaderActions": "アクション",
         "messageIdentifier": "メッセージ識別子",
-        "noTextContent": "利用可能なテキストコンテンツがありません"
+        "noTextContent": "利用可能なテキストコンテンツがありません",
+        "manualRecords": "手動送信履歴",
+        "noManualRecords": "手動送信履歴がありません",
+        "manualRecordsFailed": "手動送信履歴の読み込みに失敗しました"
     },
     "warnings": {
-        "title": "警告受信者",
-        "description": "警告通知を受信するアダプターインスタンスを設定",
+        "title": "警告",
+        "description": "警告受信者を管理し、信頼性のある配信履歴を確認",
+        "recipients": "受信者",
+        "records": "警告履歴",
         "addRecipient": "受信者を追加",
         "noRecipientsConfigured": "受信者が設定されていません",
         "addAdapterInstancesToReceiveWarningNotifications": "警告通知を受信するアダプターインスタンスを追加",
@@ -247,9 +253,29 @@
         "removeRecipient": "受信者を削除",
         "confirmRemoveMessage": "{identifier}を警告受信者から削除してもよろしいですか？",
         "loadingRecipients": "受信者を読み込み中...",
+        "loadingRecords": "警告履歴を読み込み中...",
         "selectAdapterInstance": "アダプターインスタンスを選択",
         "instancesAvailable": "{count} 個のインスタンスが利用可能",
-        "noInstancesAvailable": "利用可能なインスタンスがありません"
+        "noInstancesAvailable": "利用可能なインスタンスがありません",
+        "noRecords": "警告履歴がありません",
+        "noDeliveries": "警告発行時に受信者なし",
+        "mediaContent": "メディア/混合コンテンツ",
+        "attempts": "{count} 回試行",
+        "loadFailed": "警告の読み込みに失敗しました",
+        "retryStarted": "警告配信の再試行が完了しました",
+        "retryFailed": "警告配信の再試行に失敗しました",
+        "deliveryStatus": { "pending": "保留中", "sent": "送信済み", "failed": "失敗" }
+    },
+    "manualSend": {
+        "title": "Pusherへ送信",
+        "selectPushers": "Pusherを選択",
+        "itemCount": "{count} 件のメッセージを選択",
+        "send": "送信",
+        "sendTo": "送信先…",
+        "sendSelected": "選択項目を送信",
+        "created": "{count} 件の手動送信タスクを作成しました",
+        "loadFailed": "Pusherの読み込みに失敗しました",
+        "createFailed": "手動送信の作成に失敗しました"
     },
     "system": {
         "title": "システム設定",
