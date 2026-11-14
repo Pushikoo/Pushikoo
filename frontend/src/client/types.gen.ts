@@ -282,9 +282,9 @@ export type Policy = {
      */
     perf_merged_details?: boolean;
     /**
-     * Warn when a flow node runs longer than this many seconds
+     * Terminate a flow instance after it runs for this many seconds
      */
-    flow_node_stuck_warning_seconds?: number;
+    flow_run_timeout_seconds?: number;
     /**
      * Stop retrying warning deliveries after this many hours
      */

@@ -1,4 +1,5 @@
 import datetime
+import multiprocessing
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -69,6 +70,18 @@ from pushikoo.service.base import (
 from pushikoo.util.setting import CRON_SCHEDULER_MAX_WORKERS
 
 getter_get_timeline_continuous_failed_times: dict[tuple[str, str], int] = {}
+
+
+def _run_flow_instance_process(instance_id: UUID) -> None:
+    runner = FlowInstanceRunner.resume(instance_id)
+    try:
+        runner._run_current_instance()
+    except Exception as ex:
+        logger.exception(f"Unexpected failure in flow {runner.flow_id}")
+        try:
+            runner._abort(str(ex))
+        except Exception:
+            logger.exception("Failed to mark flow instance failed")
 
 
 class FlowService:
@@ -988,6 +1001,7 @@ class FlowInstanceRunner:
         self.current_node_started_at: datetime.datetime | None = None
         self.started_at: datetime.datetime | None = None
         self._thread: threading.Thread | None = None
+        self._process: multiprocessing.Process | None = None
         self._resume_instance_ids: list[UUID] = []
         self._create_instance_on_worker = instance_id is None
 
@@ -1636,14 +1650,6 @@ class FlowInstanceRunner:
             session.commit()
 
     def _run_current_instance(self) -> None:
-        if self._create_instance_on_worker:
-            FlowInstanceService.create(
-                self.flow_id,
-                nodes=self.flow_nodes,
-                instance_id=self.flow_instance_id,
-            )
-            self._create_instance_on_worker = False
-
         FlowInstanceService.update_status(
             self.flow_instance_id, FlowInstanceStatus.RUNNING
         )
@@ -1739,23 +1745,72 @@ class FlowInstanceRunner:
 
     def _refresh_worker(self) -> None:
         try:
-            instance_ids: list[UUID | None] = (
-                self._resume_instance_ids if self._resume_instance_ids else [None]
+            instance_ids = (
+                self._resume_instance_ids
+                if self._resume_instance_ids
+                else [self.flow_instance_id]
             )
             for instance_id in instance_ids:
+                self.flow_instance_id = instance_id
+                process: multiprocessing.Process | None = None
                 try:
-                    if instance_id is not None:
-                        self._load_instance(instance_id)
-                    self._run_current_instance()
+                    self._load_instance(instance_id)
+                    self.started_at = datetime.datetime.now(datetime.timezone.utc)
+                    timeout = (
+                        ConfigService("system", SystemConfig)
+                        .get()
+                        .policy.flow_run_timeout_seconds
+                    )
+                    process = multiprocessing.get_context("spawn").Process(
+                        target=_run_flow_instance_process,
+                        args=(instance_id,),
+                        daemon=True,
+                    )
+                    self._process = process
+                    process.start()
+                    process.join(timeout)
+
+                    if process.is_alive():
+                        error = f"flow run timed out after {timeout} seconds"
+                        logger.error(
+                            "Terminating flow {} instance {} after {} seconds",
+                            self.flow_id,
+                            instance_id,
+                            timeout,
+                        )
+                        process.terminate()
+                        process.join(5)
+                        if process.is_alive():
+                            process.kill()
+                            process.join()
+                        self._abort(error)
+                        self._issue_warning(
+                            f"Flow '{self._flow_name()}' ({self.flow_id}) instance "
+                            f"{instance_id} was terminated after exceeding the "
+                            f"{timeout}-second runtime limit."
+                        )
+                    elif process.exitcode not in (0, None):
+                        instance = FlowInstanceService.get(instance_id)
+                        if instance.status in (
+                            FlowInstanceStatus.WAITING,
+                            FlowInstanceStatus.RUNNING,
+                        ):
+                            self._abort(
+                                f"flow worker exited with code {process.exitcode}"
+                            )
                 except Exception as ex:
-                    logger.exception(f"Unexpected failure in flow {self.flow_id}")
-                    if self.flow_instance_id is not None:
-                        try:
-                            self._abort(str(ex))
-                        except Exception:
-                            logger.exception("Failed to mark flow instance failed")
+                    logger.exception(
+                        f"Failed to run flow {self.flow_id} instance {instance_id}"
+                    )
+                    if process is not None and process.is_alive():
+                        process.terminate()
+                        process.join(5)
+                        if process.is_alive():
+                            process.kill()
+                            process.join()
+                    self._abort(str(ex))
                 finally:
-                    self._clear_current_node()
+                    self._process = None
         finally:
             with self._registry_lock:
                 self._active_runners.pop(id(self), None)
@@ -1763,8 +1818,9 @@ class FlowInstanceRunner:
                     self._normal_runners.pop(self.flow_id, None)
 
     def _abort(self, error: str) -> None:
-        """Fail all pending items so they are not left stranded, then fail the instance."""
+        """Fail unfinished records and the instance after execution stops."""
         now = datetime.datetime.now(datetime.timezone.utc)
+        aborted_error = f"aborted: {error}"
         with get_session() as session:
             session.execute(
                 update(FlowItemDB)
@@ -1774,8 +1830,20 @@ class FlowInstanceRunner:
                 )
                 .values(
                     status=FlowItemStatus.FAILED.value,
-                    last_error=f"aborted: {error}",
+                    last_error=aborted_error,
                     updated_at=now,
+                )
+            )
+            session.execute(
+                update(FlowNodeExecutionDB)
+                .where(
+                    FlowNodeExecutionDB.flow_instance_id == self.flow_instance_id,
+                    FlowNodeExecutionDB.status == "running",
+                )
+                .values(
+                    status="failed",
+                    finished_at=now,
+                    error_message=aborted_error,
                 )
             )
             instance = session.get(FlowInstanceDB, self.flow_instance_id)
@@ -1799,6 +1867,13 @@ class FlowInstanceRunner:
             self._active_runners[id(self)] = self
 
         try:
+            if self._create_instance_on_worker:
+                FlowInstanceService.create(
+                    self.flow_id,
+                    nodes=self.flow_nodes,
+                    instance_id=self.flow_instance_id,
+                )
+                self._create_instance_on_worker = False
             self._thread = threading.Thread(target=self._refresh_worker, daemon=True)
             self._thread.start()
         except Exception:
@@ -1810,11 +1885,8 @@ class FlowInstanceRunner:
 
 
 class CronService:
-    WATCHDOG_JOB_ID = "pushikoo-flow-runner-watchdog"
     WARNING_RETRY_JOB_ID = "pushikoo-warning-delivery-retry"
-    WATCHDOG_INTERVAL_SECONDS = 60
     WARNING_RETRY_INTERVAL_SECONDS = 60
-    _stuck_warning_keys: set[tuple[UUID, int]] = set()
     _scheduler = BackgroundScheduler(
         executors={
             "default": {"type": "threadpool", "max_workers": CRON_SCHEDULER_MAX_WORKERS}
@@ -1893,63 +1965,6 @@ class CronService:
                 runner.running_seconds() if runner else 0.0,
             )
 
-    @staticmethod
-    def _send_stuck_warning(message: str) -> None:
-        try:
-            WarningService.issue(Struct(content=[StructText(text=message)]))
-        except Exception:
-            logger.exception("Failed to issue stuck flow-node warning")
-
-    @classmethod
-    def _check_stuck_runners(cls) -> None:
-        try:
-            threshold = (
-                ConfigService("system", SystemConfig)
-                .get()
-                .policy.flow_node_stuck_warning_seconds
-            )
-        except Exception:
-            logger.exception("Failed to load flow-node stuck warning threshold")
-            return
-
-        now = datetime.datetime.now(datetime.timezone.utc)
-        active_node_keys: set[tuple[UUID, int]] = set()
-        for runner in FlowInstanceRunner.active_runners():
-            with FlowInstanceRunner._registry_lock:
-                instance_id = runner.flow_instance_id
-                node_index = runner.current_node_index
-                adapter_name = runner.current_processing_adapter_inst
-                node_started_at = runner.current_node_started_at
-            if (
-                instance_id is None
-                or node_index is None
-                or adapter_name is None
-                or node_started_at is None
-            ):
-                continue
-            elapsed = max(0.0, (now - node_started_at).total_seconds())
-            key = (instance_id, node_index)
-            active_node_keys.add(key)
-            if elapsed <= threshold or key in cls._stuck_warning_keys:
-                continue
-            cls._stuck_warning_keys.add(key)
-            try:
-                flow = FlowService.get(runner.flow_id)
-                flow_name = flow.name
-            except Exception:
-                flow_name = "<unknown>"
-            message = (
-                f"Flow '{flow_name}' ({runner.flow_id}) instance {instance_id} "
-                f"is stuck at node {node_index} ({adapter_name}) for "
-                f"{elapsed:.1f} seconds."
-            )
-            threading.Thread(
-                target=cls._send_stuck_warning,
-                args=(message,),
-                daemon=True,
-            ).start()
-        cls._stuck_warning_keys.intersection_update(active_node_keys)
-
     @classmethod
     def _reload(cls):
         with cls._lock:
@@ -1968,16 +1983,6 @@ class CronService:
             }
 
             job_ids = {job.id for job in cls._scheduler.get_jobs()}
-            if cls.WATCHDOG_JOB_ID not in job_ids:
-                cls._scheduler.add_job(
-                    cls._check_stuck_runners,
-                    trigger="interval",
-                    seconds=cls.WATCHDOG_INTERVAL_SECONDS,
-                    id=cls.WATCHDOG_JOB_ID,
-                    replace_existing=True,
-                    max_instances=1,
-                )
-                job_ids.add(cls.WATCHDOG_JOB_ID)
             if cls.WARNING_RETRY_JOB_ID not in job_ids:
                 cls._scheduler.add_job(
                     WarningService.retry_due,
@@ -1989,7 +1994,7 @@ class CronService:
                 )
                 job_ids.add(cls.WARNING_RETRY_JOB_ID)
 
-            fixed_job_ids = {cls.WATCHDOG_JOB_ID, cls.WARNING_RETRY_JOB_ID}
+            fixed_job_ids = {cls.WARNING_RETRY_JOB_ID}
             to_add = db_ids - job_ids
             to_remove = job_ids - db_ids - fixed_job_ids
 

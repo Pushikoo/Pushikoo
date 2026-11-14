@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class SystemConfig(BaseModel):
@@ -17,10 +17,13 @@ class SystemConfig(BaseModel):
             True,
             description="Whether to merge detailed items in performance reports",
         )
-        flow_node_stuck_warning_seconds: int = Field(
+        flow_run_timeout_seconds: int = Field(
             600,
             ge=1,
-            description="Warn when a flow node runs longer than this many seconds",
+            validation_alias=AliasChoices(
+                "flow_run_timeout_seconds", "flow_node_stuck_warning_seconds"
+            ),
+            description="Terminate a flow instance after it runs for this many seconds",
         )
         warning_retry_max_hours: int = Field(
             24,

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from pushikoo.db import Config as ConfigDB
+from pushikoo.model.config import SystemConfig
 from pushikoo.service.config import ConfigService
 
 
@@ -30,6 +31,16 @@ def test_set_and_overwrite_and_delete():
     assert service.delete() is True
     assert service.get() == DummyConfig()
     assert service.delete() is False
+
+
+def test_flow_timeout_accepts_legacy_config_key():
+    config = SystemConfig.model_validate(
+        {"policy": {"flow_node_stuck_warning_seconds": 123}}
+    )
+
+    assert config.policy.flow_run_timeout_seconds == 123
+    assert "flow_run_timeout_seconds" in config.model_dump()["policy"]
+    assert "flow_node_stuck_warning_seconds" not in config.model_dump()["policy"]
 
 
 def test_invalid_db_data_recovers_without_deleting(in_memory_engine):

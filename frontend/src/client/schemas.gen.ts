@@ -1286,11 +1286,11 @@ export const PolicySchema = {
             description: 'Whether to merge detailed items in performance reports',
             default: true
         },
-        flow_node_stuck_warning_seconds: {
+        flow_run_timeout_seconds: {
             type: 'integer',
             minimum: 1,
-            title: 'Flow Node Stuck Warning Seconds',
-            description: 'Warn when a flow node runs longer than this many seconds',
+            title: 'Flow Run Timeout Seconds',
+            description: 'Terminate a flow instance after it runs for this many seconds',
             default: 600
         },
         warning_retry_max_hours: {
@@ -1487,7 +1487,7 @@ export const SystemConfigSchema = {
             '$ref': '#/components/schemas/Policy',
             default: {
                 perf_merged_details: true,
-                flow_node_stuck_warning_seconds: 600,
+                flow_run_timeout_seconds: 600,
                 warning_retry_max_hours: 24,
                 attempt: {
                     getter_timeline: [5, 10, 50]
