@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/Pushikoo/Pushikoo/compare/v0.15.0...v0.16.0) (2026-11-14)
+
+
+### Features
+
+* **flow:** terminate runs that exceed configured timeout ([40fe0b6](https://github.com/Pushikoo/Pushikoo/commit/40fe0b69bcfabe39edc3022f165f66790574bb19))
+* reliable warnings, per-instance adapter call lock and manual send ([d21af8f](https://github.com/Pushikoo/Pushikoo/commit/d21af8fc32704f3e5e2e6372cfef08d9cf071580))
+
 ## [0.15.0](https://github.com/Pushikoo/Pushikoo/compare/v0.14.0...v0.15.0) (2026-11-09)
 
 
