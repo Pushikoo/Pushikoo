@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/Pushikoo/Pushikoo/compare/v0.16.0...v0.17.0) (2026-11-20)
+
+
+### Features
+
+* **adapter:** serve stored images from disk via ctx.read_image ([18633e9](https://github.com/Pushikoo/Pushikoo/commit/18633e9b8b95464752b663aa34470a77e4219a8c))
+
+
+### Documentation
+
+* **agents:** require compatibility now that the project is in production ([c5ccf8b](https://github.com/Pushikoo/Pushikoo/commit/c5ccf8b78d07ac0b866cbeb323e55fd786d6ef34))
+
 ## [0.16.0](https://github.com/Pushikoo/Pushikoo/compare/v0.15.0...v0.16.0) (2026-11-14)
 
 
