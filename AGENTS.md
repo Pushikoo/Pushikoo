@@ -7,8 +7,9 @@ If there are API modification and build-related operations, the above content wi
 
 ## Compatibility
 
-The project is in the development stage, and modifications to APIs, related functions, and interfaces do not need to consider compatibility.
-However, the reference must be modified to ensure that the reference does not make mistakes.
+The project is in production, so changes must preserve compatibility.
+The interface must evolve incrementally, and new capabilities must provide default implementations.
+Changes to persisted data formats require a migration.
 
 ## Notes
 
