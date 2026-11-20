@@ -1,10 +1,12 @@
 import importlib
+import mimetypes
 import sys
 import threading
 from contextlib import contextmanager
 from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import FastAPI
@@ -12,6 +14,7 @@ from loguru import logger
 from pushikoo_interface import (
     Adapter,
     Getter,
+    ImageBlob,
     Processer,
     Pusher,
     get_adapter_config_types,
@@ -44,8 +47,9 @@ from pushikoo.service.base import (
     NotFoundException,
 )
 from pushikoo.service.config import ConfigService
+from pushikoo.service.image import ImageService
 from pushikoo.util.auth import verify_token_or_login_redirect
-from pushikoo.util.setting import DATA_DIR, settings
+from pushikoo.util.setting import DATA_DIR, FILE_DIR, settings
 
 ADAPTER_ENTRY_GROUP = "pushikoo.adapter"
 adapter_container_app = FastAPI()
@@ -101,6 +105,26 @@ class AdapterFrameworkContext(AdapterFrameworkContextInterface):
 
     def get_proxies(self) -> dict[str, str]:
         return ConfigService("system", SystemConfig).get().network.proxies
+
+    def read_image(self, source: str, *, timeout: float = 60) -> ImageBlob:
+        local_file_prefix = f"{settings.BASE_HOST.rstrip('/')}/file/"
+        if source.startswith(local_file_prefix):
+            try:
+                file_id = UUID(urlsplit(source).path.rsplit("/", 1)[-1])
+            except ValueError:
+                pass
+            else:
+                record = ImageService.get_file_by_id(file_id)
+                if record is not None:
+                    path = FILE_DIR / record.filename
+                    if path.is_file():
+                        return ImageBlob(
+                            data=path.read_bytes(),
+                            content_type=mimetypes.guess_type(record.filename)[0],
+                            filename=record.filename,
+                        )
+
+        return super().read_image(source, timeout=timeout)
 
 
 class AdapterService:
